@@ -1,0 +1,307 @@
+.mountain-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+/* Point Token Stack */
+.point-token-stack {
+  margin-bottom: 0.5rem;
+}
+
+.point-token {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.point-token:hover {
+  transform: scale(1.05);
+}
+
+.token-value {
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+}
+
+.token-count {
+  font-size: 0.9rem;
+  line-height: 1;
+  margin-top: 2px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Mountain Cards */
+.mountain-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.mountain-card {
+  width: 80px;
+  height: 100px;
+  border-radius: 8px;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mountain-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Mountain backgrounds */
+.mountain-5 {
+  background: linear-gradient(135deg, #81C784 0%, #66BB6A 50%, #4CAF50 100%);
+}
+
+.mountain-6 {
+  background: linear-gradient(135deg, #FFB74D 0%, #FFA726 50%, #FF9800 100%);
+}
+
+.mountain-7 {
+  background: linear-gradient(135deg, #8D6E63 0%, #6D4C41 50%, #5D4037 100%);
+}
+
+.mountain-8 {
+  background: linear-gradient(135deg, #BDBDBD 0%, #9E9E9E 50%, #757575 100%);
+}
+
+.mountain-9 {
+  background: linear-gradient(135deg, #90CAF9 0%, #64B5F6 50%, #42A5F5 100%);
+}
+
+.mountain-10 {
+  background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #90CAF9 100%);
+}
+
+/* Top card has inverted number circle */
+.card-top .card-number-circle {
+  background: #000;
+  color: white;
+}
+
+.card-number-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+
+/* Player markers container */
+.player-markers-container {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  z-index: 5;
+}
+
+/* Player marker on card */
+.player-marker {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+}
+
+.player-marker.clickable {
+  cursor: pointer;
+  border-width: 3px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.player-marker.clickable.current-player-glow {
+  box-shadow:
+    0 0 14px rgba(76, 175, 80, 0.9),
+    0 0 10px rgba(25, 118, 210, 0.7),
+    0 0 8px rgba(255, 255, 255, 0.9),
+    0 4px 8px rgba(25, 118, 210, 0.4);
+}
+
+.player-marker.clickable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 12px rgba(25, 118, 210, 0.6);
+}
+
+.player-marker.current-player {
+  border-width: 3px;
+  border-color: #1976D2;
+}
+
+/* Subtle glow for current player's tokens - always visible */
+.player-marker.current-player-glow {
+  box-shadow:
+    0 0 10px rgba(25, 118, 210, 0.6),
+    0 0 6px rgba(255, 255, 255, 0.9),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+  border-color: rgba(25, 118, 210, 0.4);
+}
+
+.goat-token.current-player-glow {
+  box-shadow:
+    0 0 10px rgba(25, 118, 210, 0.6),
+    0 0 6px rgba(255, 255, 255, 0.9),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  border-color: rgba(25, 118, 210, 0.5);
+}
+
+/* Green glow when dice grouping matches */
+.player-marker.valid-target-glow {
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.8), 0 0 8px rgba(255, 255, 255, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.goat-token.valid-target-glow {
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.8), 0 0 8px rgba(255, 255, 255, 0.6), 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Combine both glows when applicable */
+.player-marker.current-player-glow.valid-target-glow {
+  box-shadow:
+    0 0 14px rgba(76, 175, 80, 0.9),
+    0 0 10px rgba(25, 118, 210, 0.7),
+    0 0 8px rgba(255, 255, 255, 0.9),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.goat-token.current-player-glow.valid-target-glow {
+  box-shadow:
+    0 0 14px rgba(76, 175, 80, 0.9),
+    0 0 10px rgba(25, 118, 210, 0.7),
+    0 0 8px rgba(255, 255, 255, 0.9),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Level subscript */
+.level-subscript {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.5);
+  font-family: 'Inter', sans-serif;
+  line-height: 1;
+}
+
+/* Goat Tokens */
+.goat-tokens {
+  display: flex;
+  gap: 4px;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.goat-token {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border: 2px solid;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background: white;
+  transition: all 0.2s;
+}
+
+.goat-token.clickable {
+  cursor: pointer;
+  border-width: 3px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.goat-token.clickable.current-player-glow {
+  box-shadow:
+    0 0 14px rgba(76, 175, 80, 0.9),
+    0 0 10px rgba(25, 118, 210, 0.7),
+    0 0 8px rgba(255, 255, 255, 0.9),
+    0 4px 8px rgba(25, 118, 210, 0.4);
+}
+
+.goat-token.clickable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 12px rgba(25, 118, 210, 0.6);
+}
+
+.goat-token.current-player-goat {
+  border-width: 2px;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Valid target mountain highlighting */
+.mountain-column.valid-target {
+  border: 2px solid #4CAF50;
+  border-radius: 8px;
+  padding: 0.25rem;
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.valid-target-token {
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.6) !important;
+  border: 2px solid #4CAF50 !important;
+}
+
+.valid-target-indicator {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #4CAF50;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}

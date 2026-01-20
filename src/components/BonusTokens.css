@@ -1,0 +1,65 @@
+.bonus-tokens-container {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  backdrop-filter: blur(5px);
+}
+
+.bonus-tokens-label {
+  text-align: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.bonus-tokens {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.bonus-token {
+  width: 80px;
+  height: 50px;
+  border-radius: 25px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.bonus-token:hover {
+  transform: scale(1.05);
+}
+
+.bonus-token-background {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #B3E5FC 0%, #81D4FA 50%, #4FC3F7 100%);
+  opacity: 0.7;
+}
+
+.bonus-token-value {
+  position: relative;
+  z-index: 1;
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.no-tokens {
+  color: rgba(255, 255, 255, 0.6);
+  font-style: italic;
+}
