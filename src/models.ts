@@ -73,6 +73,7 @@ export interface GameState {
   currentTurn: number;
   gameEndTriggered?: boolean; // True when end condition is met
   turnsSinceEndCondition?: number; // Count of full rounds since end condition
+  playersPlayedInLastRound?: number[]; // Player indices who have played in the last round
   language?: string; // Language preference (e.g., 'en')
   soundMuted?: boolean; // Sound mute preference
 }

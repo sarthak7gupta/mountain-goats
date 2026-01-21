@@ -50,6 +50,7 @@ export class GameEngine {
       currentTurn: 1,
       gameEndTriggered: false,
       turnsSinceEndCondition: 0,
+      playersPlayedInLastRound: [],
       language: 'en',
       soundMuted: false,
     };
@@ -165,6 +166,11 @@ export class GameEngine {
   }
 
   rollDice(): void {
+    // Don't roll dice if game is over
+    if (this.state.gameOver) {
+      return;
+    }
+
     // Reset canChange flags
     for (const die of this.state.dice) {
       die.canChange = false;
@@ -510,6 +516,7 @@ export class GameEngine {
       // Reset end condition tracking if condition is no longer met
       this.state.gameEndTriggered = false;
       this.state.turnsSinceEndCondition = 0;
+      this.state.playersPlayedInLastRound = [];
       return false;
     }
 
@@ -518,6 +525,7 @@ export class GameEngine {
       // First time end condition is met - mark it and continue
       this.state.gameEndTriggered = true;
       this.state.turnsSinceEndCondition = 0;
+      this.state.playersPlayedInLastRound = [];
       return false;
     }
 
@@ -580,6 +588,18 @@ export class GameEngine {
   }
 
   nextTurn(): void {
+    // If we're in the last round, mark the current player as having played
+    if (
+      this.state.gameEndTriggered &&
+      (this.state.turnsSinceEndCondition || 0) === 0 &&
+      this.state.playersPlayedInLastRound
+    ) {
+      const currentPlayerIndex = this.state.currentPlayerIndex;
+      if (!this.state.playersPlayedInLastRound.includes(currentPlayerIndex)) {
+        this.state.playersPlayedInLastRound.push(currentPlayerIndex);
+      }
+    }
+
     // Clear all selections and reset used dice
     for (const die of this.state.dice) {
       die.selected = false;
@@ -615,11 +635,12 @@ export class GameEngine {
       return;
     }
 
-    // Auto-roll dice for new turn
-    this.rollDice();
+    // Log turn start before rolling dice
     this.addLog(
       `${this.getCurrentPlayer().name} ${i18n.t('startedTurn')} ${this.state.currentTurn}`
     );
+    // Auto-roll dice for new turn
+    this.rollDice();
   }
 
   placePieceInCell(cellNumber: CellNumber, rowIndex: number): boolean {

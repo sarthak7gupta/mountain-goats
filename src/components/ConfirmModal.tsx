@@ -33,11 +33,11 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       setTimeout(() => {
         cancelButtonRef.current?.focus();
       }, 0);
-    } else {
-      // Return focus to the previously focused element when modal closes
-      if (previousActiveElement.current) {
-        previousActiveElement.current.focus();
-      }
+      return;
+    }
+    // Return focus to the previously focused element when modal closes
+    if (previousActiveElement.current) {
+      previousActiveElement.current.focus();
     }
   }, [isOpen]);
 
@@ -62,11 +62,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           e.preventDefault();
           lastElement?.focus();
         }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement?.focus();
-        }
+      } else if (document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement?.focus();
       }
     };
 
@@ -79,7 +77,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   return (
     <div
       ref={modalRef}
-      className="modal-overlay"
+      className="confirm-modal-overlay"
       onClick={onCancel}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
@@ -91,7 +89,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       aria-labelledby="confirm-modal-title"
     >
       <div
-        className="modal-content"
+        className="confirm-modal-content"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           // Handle Escape key to close modal
@@ -105,19 +103,21 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
         }}
         role="document"
       >
-        <div className="modal-header">
-          <h2 id="confirm-modal-title">{title}</h2>
+        <div className="confirm-modal-header">
+          <h2 id="confirm-modal-title" className="confirm-modal-title">
+            {title}
+          </h2>
         </div>
 
-        <div className="modal-body">
-          <p>{message}</p>
+        <div className="confirm-modal-body">
+          <p className="confirm-modal-message">{message}</p>
         </div>
 
-        <div className="modal-footer">
+        <div className="confirm-modal-actions">
           <button
             ref={cancelButtonRef}
             type="button"
-            className="cancel-button"
+            className="confirm-modal-button confirm-modal-button--cancel"
             onClick={onCancel}
             aria-label={cancelText || i18n.t('cancel')}
           >
@@ -125,7 +125,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           </button>
           <button
             type="button"
-            className="confirm-button"
+            className="confirm-modal-button confirm-modal-button--confirm"
             onClick={onConfirm}
             aria-label={confirmText || i18n.t('confirm')}
           >

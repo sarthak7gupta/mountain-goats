@@ -65,7 +65,8 @@ export const en = {
     'Are you sure you want to reset the game and return to setup? All game progress will be lost.',
   yesReset: 'Yes, Reset',
   passTurn: 'Pass Turn?',
-  passTurnMessage: 'You have unused dice remaining. Are you sure you want to pass your turn to the next player?',
+  passTurnMessage:
+    'You have unused dice remaining. Are you sure you want to pass your turn to the next player?',
   yesPassTurn: 'Yes, Pass Turn',
 
   // Game Rules
@@ -124,6 +125,8 @@ export const en = {
   gameStarted: 'Game started with',
   playersText: 'players',
   endConditionMet: 'End condition met! Finishing current round...',
+  lastRound: 'Last Round',
+  lastRoundBanner: 'This is the last round! All players will have one final turn.',
   gameOverWinner: 'Game Over!',
   wins: 'wins',
   withPoints: 'with',

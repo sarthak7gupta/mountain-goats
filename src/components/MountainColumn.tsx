@@ -66,11 +66,11 @@ const MountainColumn: React.FC<MountainColumnProps> = ({
   const getMountainBackground = (cellNum: CellNumber): string => {
     const backgrounds: Record<CellNumber, string> = {
       [CellNumber.FIVE]: 'mountain-5', // Green hills
-      [CellNumber.SIX]: 'mountain-6', // Orange/brown hills
-      [CellNumber.SEVEN]: 'mountain-7', // Dark brown/rocky
-      [CellNumber.EIGHT]: 'mountain-8', // Grey rocky
-      [CellNumber.NINE]: 'mountain-9', // Light blue/icy
-      [CellNumber.TEN]: 'mountain-10', // Light blue/icy
+      [CellNumber.SIX]: 'mountain-6', // Orange fields
+      [CellNumber.SEVEN]: 'mountain-7', // Brown dirt
+      [CellNumber.EIGHT]: 'mountain-8', // Grey rocks
+      [CellNumber.NINE]: 'mountain-9', // Blue water
+      [CellNumber.TEN]: 'mountain-10', // Lighter blue ice
     };
     return backgrounds[cellNum] || '';
   };
@@ -81,16 +81,16 @@ const MountainColumn: React.FC<MountainColumnProps> = ({
       [CellNumber.SIX]: '#FF9800', // Orange
       [CellNumber.SEVEN]: '#F44336', // Red
       [CellNumber.EIGHT]: '#9E9E9E', // Grey
-      [CellNumber.NINE]: '#03A9F4', // Light blue
-      [CellNumber.TEN]: '#03A9F4', // Light blue
+      [CellNumber.NINE]: '#03A9F4', // Blue
+      [CellNumber.TEN]: '#81D4FA', // Lighter blue
     };
     return colors[cellNum] || '#fff';
   };
 
   const getPlayerColor = (color: PlayerColor): string => {
     const colors: Record<PlayerColor, string> = {
-      [PlayerColor.BLACK]: '#212121', // Very dark gray/black
-      [PlayerColor.WHITE]: '#F5F5F5', // Very light gray/white
+      [PlayerColor.BLACK]: '#212121',
+      [PlayerColor.WHITE]: '#F5F5F5',
       [PlayerColor.RED]: '#F44336',
       [PlayerColor.YELLOW]: '#FFEB3B',
     };

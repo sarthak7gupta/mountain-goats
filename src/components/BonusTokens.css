@@ -36,6 +36,31 @@
   overflow: hidden;
   cursor: pointer;
   transition: transform 0.2s;
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  .bonus-tokens-container {
+    padding: 0.75rem;
+  }
+
+  .bonus-tokens-label {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .bonus-tokens {
+    gap: 0.75rem;
+  }
+
+  .bonus-token {
+    width: 65px;
+    height: 40px;
+  }
+
+  .bonus-token-value {
+    font-size: 1.5rem;
+  }
 }
 
 .bonus-token:hover {

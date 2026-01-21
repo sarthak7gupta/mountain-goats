@@ -1,16 +1,27 @@
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  margin: 0;
+  padding: 2rem;
   background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 2rem;
   backdrop-filter: blur(4px);
+  border: none;
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-start;
+    padding-top: 0.5rem;
+  }
 }
 
 .modal-content {
@@ -25,6 +36,21 @@
   overflow: hidden;
 }
 
+@media (max-width: 768px) {
+  .modal-content {
+    max-height: calc(100vh - 1rem);
+    height: calc(100vh - 1rem);
+    border-radius: 12px 12px 0 0;
+    margin: 0 0.5rem;
+    max-width: calc(100% - 1rem);
+  }
+
+  .modal-body {
+    max-height: calc(100vh - 1rem - 60px - 60px);
+    overflow-y: auto;
+  }
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -32,6 +58,7 @@
   padding: 1.5rem 2rem;
   border-bottom: 2px solid #E0E0E0;
   background: linear-gradient(135deg, #E0F2F7 0%, #B2EBF2 100%);
+  flex-shrink: 0;
 }
 
 .modal-header h2 {
@@ -40,6 +67,53 @@
   font-size: 1.8rem;
   color: #263238;
   font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .modal-header {
+    padding: 0.75rem 1.25rem;
+  }
+
+  .modal-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .close-button {
+    width: 36px;
+    height: 36px;
+    font-size: 1.3rem;
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+
+  .modal-body {
+    padding: 1rem 1.25rem;
+  }
+
+  .rule-section {
+    margin-bottom: 1.25rem;
+  }
+
+  .rule-section h3 {
+    font-size: 1.05rem;
+  }
+
+  .rule-section p,
+  .rule-section li {
+    font-size: 0.9rem;
+  }
+
+  .modal-footer {
+    padding: 0.75rem 1.25rem 1rem;
+  }
+
+  .close-button-large {
+    width: 100%;
+    padding: 0.75rem;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
 }
 
 .close-button {
@@ -68,6 +142,8 @@
   padding: 2rem;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  max-height: 100%;
 }
 
 .rule-section {
@@ -117,6 +193,7 @@
   display: flex;
   justify-content: center;
   background: #F5F5F5;
+  flex-shrink: 0;
 }
 
 .close-button-large {

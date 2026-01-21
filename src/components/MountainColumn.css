@@ -4,6 +4,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem;
+  flex-shrink: 0;
 }
 
 /* Point Token Stack */
@@ -25,6 +26,22 @@
   border: 3px solid rgba(255, 255, 255, 0.3);
   cursor: pointer;
   transition: transform 0.2s;
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  .point-token {
+    width: 50px;
+    height: 50px;
+  }
+
+  .token-value {
+    font-size: 1.2rem;
+  }
+
+  .token-count {
+    font-size: 0.75rem;
+  }
 }
 
 .point-token:hover {
@@ -65,6 +82,36 @@
   align-items: center;
   justify-content: center;
   transition: transform 0.2s, box-shadow 0.2s;
+}
+
+@media (max-width: 768px) {
+  .mountain-card {
+    width: 65px;
+    height: 80px;
+  }
+
+  .card-number-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 1.4rem;
+  }
+
+  .level-subscript {
+    font-size: 0.6rem;
+    bottom: 3px;
+    right: 4px;
+  }
+
+  .player-marker {
+    width: 18px;
+    height: 18px;
+  }
+
+  .goat-token {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
 }
 
 .mountain-card:hover {
@@ -227,6 +274,8 @@
   margin-top: 0.5rem;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
+  max-width: calc(2 * 32px + 4px);
 }
 
 .goat-token {

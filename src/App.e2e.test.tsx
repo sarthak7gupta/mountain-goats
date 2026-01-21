@@ -123,11 +123,22 @@ describe('App E2E Tests', () => {
     const firstDie = dice[0];
     await user.click(firstDie);
 
-    // Click again to deselect
-    await user.click(firstDie);
+    // Wait for selection to update
+    await waitFor(() => {
+      const updatedDice = screen.getAllByRole('button', { name: /die/i });
+      expect(updatedDice.length).toBeGreaterThan(0);
+    });
 
-    // Die should be deselected
-    expect(firstDie).toBeInTheDocument();
+    // Click again to deselect - re-query to get fresh reference
+    const diceAfterSelect = screen.getAllByRole('button', { name: /die/i });
+    await user.click(diceAfterSelect[0]);
+
+    // Wait for deselection and verify die is still in document
+    await waitFor(() => {
+      const diceAfterDeselect = screen.getAllByRole('button', { name: /die/i });
+      expect(diceAfterDeselect.length).toBeGreaterThan(0);
+      expect(diceAfterDeselect[0]).toBeInTheDocument();
+    });
   });
 
   it('should handle changing die value when multiple 1s are rolled', async () => {

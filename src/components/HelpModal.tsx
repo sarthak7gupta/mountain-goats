@@ -8,7 +8,7 @@ interface HelpModalProps {
 }
 
 const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
-  const modalRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
@@ -20,11 +20,9 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
       setTimeout(() => {
         closeButtonRef.current?.focus();
       }, 0);
-    } else {
+    } else if (previousActiveElement.current) {
       // Return focus to the previously focused element when modal closes
-      if (previousActiveElement.current) {
-        previousActiveElement.current.focus();
-      }
+      previousActiveElement.current.focus();
     }
   }, [isOpen]);
 
@@ -49,11 +47,9 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           e.preventDefault();
           lastElement?.focus();
         }
-      } else {
-        if (document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement?.focus();
-        }
+      } else if (document.activeElement === lastElement) {
+        e.preventDefault();
+        firstElement?.focus();
       }
     };
 
@@ -64,9 +60,11 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div
+    <dialog
       ref={modalRef}
       className="modal-overlay"
+      open={isOpen}
+      aria-labelledby="help-modal-title"
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
@@ -83,9 +81,6 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           onClose();
         }
       }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="help-modal-title"
     >
       <div
         className="modal-content"
@@ -188,7 +183,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 };
 

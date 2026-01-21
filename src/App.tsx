@@ -8,9 +8,10 @@ import MountainColumn from './components/MountainColumn';
 import PlayerSetup from './components/PlayerSetup';
 import PlayerSidebar from './components/PlayerSidebar';
 import ShortcutsModal from './components/ShortcutsModal';
+import WinScreen from './components/WinScreen';
 import { GameEngine } from './game';
 import { i18n } from './i18n';
-import { CellNumber } from './models';
+import { CellNumber, PlayerColor } from './models';
 import './App.css';
 
 const STORAGE_KEY = 'mountain-goats-game-state';
@@ -352,7 +353,16 @@ function App() {
 
     globalThis.addEventListener('keydown', handleKeyDown);
     return () => globalThis.removeEventListener('keydown', handleKeyDown);
-  }, [gameEngine, showShortcuts, showHelp, showConfirmReset, showConfirmNextTurn, forceUpdate, nextTurn, handleSoundClick]);
+  }, [
+    gameEngine,
+    showShortcuts,
+    showHelp,
+    showConfirmReset,
+    showConfirmNextTurn,
+    forceUpdate,
+    nextTurn,
+    handleSoundClick,
+  ]);
 
   const handleStartGame = (playerNames: string[]) => {
     const engine = new GameEngine(playerNames.length, 10, 10, playerNames);
@@ -397,68 +407,116 @@ function App() {
     }
   };
 
+  // Generate gradient based on player color
+  const getGradientForPlayer = (color: PlayerColor): string => {
+    // Create lighter variations of each color for gradient
+    const gradients: Record<PlayerColor, string> = {
+      [PlayerColor.BLACK]: 'linear-gradient(135deg, #EEEEEE 0%, #B0BEC5 50%, #616161 100%)',
+      [PlayerColor.WHITE]: 'linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 50%, #EEEEEE 100%)',
+      [PlayerColor.RED]: 'linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 50%, #EF9A9A 100%)',
+      [PlayerColor.YELLOW]: 'linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 50%, #FFF59D 100%)',
+    };
+    return gradients[color] || 'linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 50%, #81D4FA 100%)';
+  };
+
+  // Get background gradient style
+  const getAppBackgroundStyle = (): React.CSSProperties => {
+    if (gameEngine) {
+      const currentPlayer = gameEngine.getCurrentPlayer();
+      return {
+        background: getGradientForPlayer(currentPlayer.color),
+      };
+    }
+    // Default gradient when no game is active
+    return {
+      background: 'linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 50%, #81D4FA 100%)',
+    };
+  };
+
   return (
     <>
       {gameEngine ? (
-        <div className="app" role="application" aria-label={i18n.t('gameTitle')}>
-          <header className="header">
-            <h1>🏔️ {i18n.t('gameTitle')}</h1>
-            <HeaderButtons
-              currentLanguage={currentLanguage}
-              currentSoundMuted={currentSoundMuted}
-              gameEngine={gameEngine}
-              language={language}
-              soundMuted={soundMuted}
-              onLanguageClick={handleLanguageClick}
-              onSoundClick={handleSoundClick}
-              onHelpClick={() => setShowHelp(true)}
-            />
-          </header>
-
-          <div className="controls" role="toolbar" aria-label="Game controls">
-            <button type="button" onClick={nextTurn} aria-label={i18n.t('nextTurn')}>
-              {i18n.t('nextTurn')}
-            </button>
-            <button
-              type="button"
-              onClick={requestReset}
-              className="reset-btn"
-              aria-label={i18n.t('reset')}
+        <>
+          {gameEngine.state.gameOver ? (
+            <WinScreen gameEngine={gameEngine} onReset={confirmReset} />
+          ) : (
+            <div
+              className="app"
+              role="application"
+              aria-label={i18n.t('gameTitle')}
+              style={getAppBackgroundStyle()}
             >
-              {i18n.t('reset')}
-            </button>
-          </div>
-          <main id="main-content" className="main-container">
-            <div className="board-area">
-              <BonusTokens gameEngine={gameEngine} />
+              <header className="header">
+                <h1>🏔️ {i18n.t('gameTitle')}</h1>
+                <HeaderButtons
+                  currentLanguage={currentLanguage}
+                  currentSoundMuted={currentSoundMuted}
+                  gameEngine={gameEngine}
+                  language={language}
+                  soundMuted={soundMuted}
+                  onLanguageClick={handleLanguageClick}
+                  onSoundClick={handleSoundClick}
+                  onHelpClick={() => setShowHelp(true)}
+                />
+              </header>
 
-              <div className="columns-container">
-                {Object.values(CellNumber)
-                  .filter((v) => typeof v === 'number')
-                  .map((cellNum) => (
-                    <MountainColumn
-                      key={cellNum}
-                      gameEngine={gameEngine}
-                      cellNumber={cellNum as CellNumber}
-                      forceUpdate={forceUpdate}
-                      updateTrigger={updateTrigger}
-                    />
-                  ))}
+              <div className="controls" role="toolbar" aria-label="Game controls">
+                <button type="button" onClick={nextTurn} aria-label={i18n.t('nextTurn')}>
+                  {i18n.t('nextTurn')}
+                </button>
+                <button
+                  type="button"
+                  onClick={requestReset}
+                  className="reset-btn"
+                  aria-label={i18n.t('reset')}
+                >
+                  {i18n.t('reset')}
+                </button>
               </div>
-            </div>
+              {gameEngine.state.gameEndTriggered &&
+                (gameEngine.state.turnsSinceEndCondition || 0) === 0 && (
+                  <div className="last-round-banner" role="alert" aria-live="polite">
+                    <strong>{i18n.t('lastRound')}</strong>: {i18n.t('lastRoundBanner')}
+                  </div>
+                )}
+              <main id="main-content" className="main-container">
+                <div className="dice-panel">
+                  <DiceWidget gameEngine={gameEngine} forceUpdate={forceUpdate} />
+                </div>
 
-            <div className="dice-panel">
-              <DiceWidget gameEngine={gameEngine} forceUpdate={forceUpdate} />
-            </div>
+                <div className="board-area">
+                  <BonusTokens gameEngine={gameEngine} />
 
-            <div className="players-panel">
-              <PlayerSidebar gameEngine={gameEngine} />
-              <GameLog gameEngine={gameEngine} />
+                  <div className="columns-container">
+                    {Object.values(CellNumber)
+                      .filter((v) => typeof v === 'number')
+                      .map((cellNum) => (
+                        <MountainColumn
+                          key={cellNum}
+                          gameEngine={gameEngine}
+                          cellNumber={cellNum as CellNumber}
+                          forceUpdate={forceUpdate}
+                          updateTrigger={updateTrigger}
+                        />
+                      ))}
+                  </div>
+                </div>
+
+                <div className="players-panel">
+                  <PlayerSidebar gameEngine={gameEngine} />
+                  <GameLog gameEngine={gameEngine} />
+                </div>
+              </main>
             </div>
-          </main>
-        </div>
+          )}
+        </>
       ) : (
-        <div className="app" role="application" aria-label={i18n.t('gameTitle')}>
+        <div
+          className="app"
+          role="application"
+          aria-label={i18n.t('gameTitle')}
+          style={getAppBackgroundStyle()}
+        >
           <header className="header">
             <h1>🏔️ {i18n.t('gameTitle')}</h1>
             <HeaderButtons

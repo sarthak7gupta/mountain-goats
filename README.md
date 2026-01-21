@@ -2,6 +2,18 @@
 
 A strategic board game built with React where players climb mountains, collect tokens, and compete for the highest score!
 
+## What is it?
+
+I'm primarily a backend developer, with some experience in front-end development (mainly Angular and some React). Front-end is definitely not my expertise, unlike system design and software architecture, but I can work with it. So, will this project necessarily always follow best frontend practices or have the latest coolest tools? Probably not.
+
+I do like to dabble with product and UI/UX side of things, so you might see some experiments in terms of usability, etc.
+
+Either ways, this was simply made as a fun side-project during my free time using AI autocomplete, without any backend, as a pass-and-play game, to see how AI can help write a very basic web-app, given the right direction.
+
+That said, feedback and suggestions are always welcome. Feel free to raise issues, or PRs, or fork it out into your version!
+
+Just remember to have fun!
+
 ## ✨ Features
 
 - 🎮 Interactive web UI built with React
@@ -17,6 +29,10 @@ A strategic board game built with React where players climb mountains, collect t
 - ⌨️ Keyboard shortcuts for all actions
 
 ## 🚀 Getting Started
+
+[Play Mountain Goats Online!](https://sarthak7gupta.github.io/mountain-goats/)
+
+## 💻 Development
 
 ### Requirements
 
@@ -117,10 +133,10 @@ pnpm check
 
 ### Setup
 
-1. Enter player names (2-4 players)
-2. Each player starts with one goat at the foot of each mountain
-3. Point tokens are placed above each mountain based on player count
-4. 4 bonus tokens are available at the top
+1. Enter player names (2-4 players) and press Start
+2. Each player starts with one goat each at the foot of each mountain
+3. Point tokens are placed atop each mountain based on player count
+4. 4 bonus tokens are available
 
 ### Turn Structure
 
@@ -140,7 +156,7 @@ pnpm check
 
 ### Bonus Tokens
 
-When you collect at least one point token from each of the 6 mountains (5-10), you automatically claim the highest-value bonus token still available. Additional complete sets claim additional bonus tokens.
+When you collect at least one point token from each of the 6 mountains (5-10), you automatically claim the highest-value bonus token still available. Additional complete sets claim additional bonus tokens. (One player can get multiple bonus tokens, if they complete as many sets)
 
 ### Game End
 

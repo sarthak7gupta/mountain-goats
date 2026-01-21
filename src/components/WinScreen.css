@@ -1,0 +1,258 @@
+.win-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.win-content {
+  background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
+  border-radius: 24px;
+  padding: 3rem;
+  max-width: 600px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.win-icon {
+  font-size: 5rem;
+  margin-bottom: 1rem;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.win-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1976D2;
+  margin: 0 0 2rem 0;
+  font-family: 'Playfair Display', serif;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.winners-list {
+  margin: 2rem 0;
+}
+
+.tie-message {
+  font-size: 1.1rem;
+  color: #424242;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+}
+
+.winner-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 3px solid #4CAF50;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  animation: scaleIn 0.5s ease-out;
+}
+
+.winner-card.single-winner {
+  margin: 2rem auto;
+  max-width: 400px;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.winner-color-indicator {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.winner-info {
+  flex: 1;
+  text-align: left;
+}
+
+.winner-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #212121;
+  margin-bottom: 0.5rem;
+}
+
+.winner-score {
+  font-size: 1.2rem;
+  color: #424242;
+}
+
+.tie-note {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: #4CAF50;
+  margin-top: 1rem;
+}
+
+.final-scores {
+  margin: 2.5rem 0;
+  padding-top: 2rem;
+  border-top: 2px solid #E0E0E0;
+}
+
+.final-scores h2 {
+  font-size: 1.3rem;
+  color: #424242;
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+.scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.score-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.score-item.winner {
+  background: rgba(76, 175, 80, 0.1);
+  border-color: #4CAF50;
+  font-weight: 600;
+}
+
+.score-color-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.score-name {
+  flex: 1;
+  text-align: left;
+  font-size: 1rem;
+  color: #212121;
+}
+
+.score-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1976D2;
+}
+
+.reset-game-btn {
+  margin-top: 2rem;
+  padding: 1rem 2.5rem;
+  font-size: 1.2rem;
+  background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.4);
+  transition: all 0.3s;
+}
+
+.reset-game-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.5);
+  background: linear-gradient(135deg, #1565C0 0%, #0D47A1 100%);
+}
+
+.reset-game-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .win-content {
+    padding: 2rem 1.5rem;
+    width: 95%;
+  }
+
+  .win-icon {
+    font-size: 3.5rem;
+  }
+
+  .win-title {
+    font-size: 2rem;
+  }
+
+  .winner-card {
+    padding: 1rem;
+  }
+
+  .winner-color-indicator {
+    width: 50px;
+    height: 50px;
+  }
+
+  .winner-name {
+    font-size: 1.2rem;
+  }
+
+  .winner-score {
+    font-size: 1rem;
+  }
+}

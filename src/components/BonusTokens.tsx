@@ -18,7 +18,7 @@ const BonusTokens: React.FC<BonusTokensProps> = ({ gameEngine }) => {
           <div className="no-tokens">No bonus tokens available</div>
         ) : (
           tokens
-            .sort((a, b) => b.value - a.value)
+            .toSorted((a, b) => b.value - a.value)
             .map((token) => (
               <div
                 key={token.value}

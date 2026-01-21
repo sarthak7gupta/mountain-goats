@@ -35,3 +35,29 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Prevent horizontal scroll on small screens */
+  html, body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+  body {
+    font-size: 14px;
+  }
+}
