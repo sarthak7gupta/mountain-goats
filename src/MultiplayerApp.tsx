@@ -45,6 +45,7 @@ export default function MultiplayerApp() {
   const [bigMountain, setBig] = useState(false);
   const [greenValley, setValley] = useState(false);
   const [available, setAvailable] = useState(false);
+  const [serverMode, setServerMode] = useState('lan');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -62,7 +63,10 @@ export default function MultiplayerApp() {
   );
   useEffect(() => {
     api('/config')
-      .then(() => setAvailable(true))
+      .then((config) => {
+        setAvailable(true);
+        setServerMode(config.mode);
+      })
       .catch(() => setAvailable(false));
   }, []);
   useEffect(() => {
@@ -225,6 +229,9 @@ export default function MultiplayerApp() {
           <section className="panel">
             <p className="eyebrow">BASE CAMP</p>
             <h2>Gather your crew</h2>
+            {available && serverMode === 'online' && (
+              <p>Play from anywhere. Create a private room and share its invite link.</p>
+            )}
             {!available ? (
               <>
                 <p>
