@@ -16,6 +16,7 @@
     "format:check": "biome format .",
     "check": "biome check --write . && tsc --noEmit",
     "host": "tsx server/http.ts",
+    "start": "MODE=online tsx server/http.ts",
     "test:server": "vitest run server"
   },
   "keywords": [],
@@ -45,7 +46,7 @@
     "vitest": "^4.0.17"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "packageManager": "pnpm@12.18.0"
 }
