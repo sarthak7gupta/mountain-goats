@@ -2,6 +2,10 @@
 
 A strategic board game built with React where players climb mountains, collect tokens, and compete for the highest score!
 
+## Multiplayer
+
+Use `pnpm install`, `pnpm build`, then `pnpm host` to host on your Wi-Fi. Open the printed network address on each device, create a room, and share the invite link. Supports 2–5 players, Big Mountain and Green Valley. [Setup, rules, protocol and testing](docs/MULTIPLAYER.md).
+
 ## What is it?
 
 I'm primarily a backend developer, with some experience in front-end development (mainly Angular and some React). Front-end is definitely not my expertise, unlike system design and software architecture, but I can work with it. So, will this project necessarily always follow best frontend practices or have the latest coolest tools? Probably not.
@@ -36,7 +40,7 @@ Just remember to have fun!
 
 ### Requirements
 
-- **Node.js** 18+
+- **Node.js** 22+
 - **pnpm** (install with `npm install -g pnpm`)
 
 ### Installation
@@ -214,7 +218,7 @@ The game is fully internationalized with support for:
 
 ## 🚀 Next Steps
 
-Adding undo functionalities, and playing over multiple devices, rather than just pass and play on a single device.
+Multiplayer is delivered as a versioned PR stack; see [multiplayer documentation](docs/MULTIPLAYER.md).
 
 ## 📝 License
 
