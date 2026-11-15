@@ -43,6 +43,7 @@ export function app(rooms = new Rooms()) {
           else if (++limit.count > 240) throw new RoomError('Too many requests. Wait a minute.', 429);
         }
         if (url.pathname === '/api/config' && req.method === 'GET') return json(res, 200, process.env.MODE === 'online' ? { mode: 'online' } : { mode: 'lan', lanUrls: lanAddresses(req.socket.localPort || 0) });
+        if (url.pathname === '/api/rooms' && req.method === 'GET') return json(res, 200, rooms.publicRooms());
         if (url.pathname === '/api/rooms' && req.method === 'POST') {
           const input = await body(req); const { room, token } = rooms.create(input);
           return json(res, 201, { token, room: rooms.view(room, token) });

@@ -1,6 +1,7 @@
 /* biome-ignore-all lint/suspicious/noArrayIndexKey: Seats, dice and board cells are fixed ordered slots. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import App from './App';
+import PublicRooms from './components/PublicRooms';
 import { GameEngine } from './game';
 import type { CellNumber, PlayerColor } from './models';
 import type { Action, RoomView, Session } from './multiplayer';
@@ -65,6 +66,7 @@ export default function MultiplayerApp() {
   const [name, setName] = useState('');
   const [code, setCode] = useState(new URLSearchParams(location.search).get('room') || '');
   const [capacity, setCapacity] = useState(4);
+  const [publicRoom, setPublicRoom] = useState(false);
   const [bigMountain, setBig] = useState(false);
   const [greenValley, setValley] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -176,7 +178,7 @@ export default function MultiplayerApp() {
       const result = await api(
         join ? `/rooms/${code.trim().toUpperCase()}/join` : '/rooms',
         undefined,
-        join ? { name } : { name, capacity, bigMountain, greenValley }
+        join ? { name } : { name, capacity, bigMountain, greenValley, public: publicRoom }
       );
       const seat = { code: result.room.code, token: result.token };
       localStorage.setItem(key, JSON.stringify(seat));
@@ -375,7 +377,15 @@ export default function MultiplayerApp() {
                       </select>
                     </label>
                     <fieldset>
-                      <legend>Take the scenic route</legend>
+                      <legend>Room options</legend>
+                      <label className="check">
+                        <input
+                          type="checkbox"
+                          checked={publicRoom}
+                          onChange={(e) => setPublicRoom(e.target.checked)}
+                        />
+                        Public room <small>Anyone can discover and join before starting</small>
+                      </label>
                       <label className="check">
                         <input
                           type="checkbox"
@@ -794,6 +804,7 @@ export default function MultiplayerApp() {
           </details>
         </main>
       )}
+      {!session && available && <PublicRooms onJoin={setCode} />}
       <footer>Mountain Goats · A game by Stefan Risthaus · Unofficial fan implementation</footer>
     </div>
   );
