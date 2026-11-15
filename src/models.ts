@@ -5,6 +5,7 @@ export enum PlayerColor {
   WHITE = 'white',
   RED = 'red',
   YELLOW = 'yellow',
+  GREEN = 'green',
 }
 
 export enum CellNumber {
@@ -58,6 +59,9 @@ export interface GameLogEntry {
 }
 
 export interface GameState {
+  expansions?: { bigMountain: boolean; greenValley: boolean };
+  bigMountain?: Record<number, PlayerColor>;
+  valley?: { color: PlayerColor; mountain: CellNumber }[];
   numPlayers: number; // 2-4
   players: Player[];
   currentPlayerIndex: number;

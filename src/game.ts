@@ -1,5 +1,5 @@
 /** Game logic for Mountain Goats board game */
-import { i18n } from './i18n';
+import { i18n } from './i18n/index';
 import { Cell, CellNumber, GameState, Player, PlayerColor } from './models';
 
 export class GameEngine {
@@ -110,7 +110,7 @@ export class GameEngine {
     };
 
     // Adjust for player count
-    const reduction = 4 - state.numPlayers;
+    const reduction = Math.max(0, 4 - state.numPlayers);
 
     state.pointTokens = [];
     for (const [value, count] of Object.entries(baseCounts)) {
@@ -202,7 +202,7 @@ export class GameEngine {
     this.addLog(`Rolled: [${diceValues}]`);
 
     // Dispatch event to trigger and sound
-    if (typeof globalThis !== 'undefined') {
+    if (typeof globalThis.dispatchEvent === 'function') {
       globalThis.dispatchEvent(new Event('diceRolled'));
     }
   }
@@ -210,7 +210,13 @@ export class GameEngine {
   changeDieValue(dieIndex: number, newValue: number): void {
     if (dieIndex >= 0 && dieIndex < this.state.dice.length) {
       const die = this.state.dice[dieIndex];
-      if (die.canChange && newValue >= 2 && newValue <= 6) {
+      if (
+        die.canChange &&
+        !die.used &&
+        Number.isInteger(newValue) &&
+        newValue >= 1 &&
+        newValue <= 6
+      ) {
         die.value = newValue;
         die.canChange = false;
         this.addLog(`${this.getCurrentPlayer().name} ${i18n.t('changedDie')} ${newValue}`);
@@ -276,6 +282,7 @@ export class GameEngine {
   }
 
   moveGoatUpMountain(mountainNumber: CellNumber): boolean {
+    if (this.state.gameOver || !this.hasGoat(mountainNumber)) return false;
     const currentPlayer = this.getCurrentPlayer();
     const selectedDice = this.state.dice.filter((d) => d.selected && !d.used);
 
@@ -326,7 +333,21 @@ export class GameEngine {
         this.checkAndClaimBonusTokens();
         return true;
       }
-      return false;
+      if (this.state.expansions?.greenValley) {
+        this.enterValley(mountainNumber);
+        for (const die of selectedDice) {
+          die.used = true;
+          die.selected = false;
+          die.canChange = false;
+        }
+        return true;
+      }
+      // An exhausted summit still consumes a valid dice group.
+      for (const die of selectedDice) {
+        die.used = true;
+        die.selected = false;
+      }
+      return true;
     }
 
     // If player has no piece on this mountain, start from bottom
@@ -401,6 +422,7 @@ export class GameEngine {
         this.checkAndClaimBonusTokens();
       } else {
         this.addLog(`${currentPlayer.name} moved to top of mountain ${mountainNumber}`);
+        if (this.state.expansions?.greenValley) this.enterValley(mountainNumber);
       }
 
       return true;
@@ -588,18 +610,8 @@ export class GameEngine {
   }
 
   nextTurn(): void {
-    // If we're in the last round, mark the current player as having played
-    if (
-      this.state.gameEndTriggered &&
-      (this.state.turnsSinceEndCondition || 0) === 0 &&
-      this.state.playersPlayedInLastRound
-    ) {
-      const currentPlayerIndex = this.state.currentPlayerIndex;
-      if (!this.state.playersPlayedInLastRound.includes(currentPlayerIndex)) {
-        this.state.playersPlayedInLastRound.push(currentPlayerIndex);
-      }
-    }
-
+    if (this.state.gameOver) return;
+    if (this.checkGameEndConditions()) this.state.gameEndTriggered = true;
     // Clear all selections and reset used dice
     for (const die of this.state.dice) {
       die.selected = false;
@@ -623,7 +635,8 @@ export class GameEngine {
     }
 
     // Check if game should end (after completing a full round if end condition was met)
-    if (this.shouldEndGame()) {
+    if (this.state.gameEndTriggered && wasLastPlayer) {
+      this.scoreExpansions();
       this.state.gameOver = true;
       const winners = this.getWinners();
       if (winners.length === 1) {
@@ -641,6 +654,123 @@ export class GameEngine {
     );
     // Auto-roll dice for new turn
     this.rollDice();
+  }
+
+  configureExpansions(options: { bigMountain: boolean; greenValley: boolean }): void {
+    this.state.expansions = options;
+    this.state.bigMountain = {};
+    this.state.valley = [];
+  }
+
+  hasGoat(mountain: CellNumber): boolean {
+    const color = this.getCurrentPlayer().color;
+    return (
+      this.state.playerPieces[mountain].includes(color) ||
+      this.state.cells[mountain].some((c) => c.occupiedBy.includes(color))
+    );
+  }
+
+  goatLocations(): string[] {
+    const color = this.getCurrentPlayer().color;
+    const locations: string[] = [];
+    for (let m = 5; m <= 10; m++) if (this.hasGoat(m)) locations.push(`mountain:${m}`);
+    for (const [space, owner] of Object.entries(this.state.bigMountain || {})) {
+      if (owner === color) locations.push(`big:${space}`);
+    }
+    (this.state.valley || []).forEach((goat, i) => {
+      if (goat.color === color) locations.push(`valley:${i}`);
+    });
+    return locations;
+  }
+
+  private removeGoat(source: string): boolean {
+    if (!this.goatLocations().includes(source)) return false;
+    const [kind, value] = source.split(':');
+    const n = Number(value);
+    const color = this.getCurrentPlayer().color;
+    if (kind === 'mountain') {
+      this.state.playerPieces[n as CellNumber] = this.state.playerPieces[n as CellNumber].filter(
+        (c) => c !== color
+      );
+      for (const cell of this.state.cells[n as CellNumber])
+        cell.occupiedBy = cell.occupiedBy.filter((c) => c !== color);
+    } else if (kind === 'big') delete this.state.bigMountain![n];
+    else this.state.valley!.splice(n, 1);
+    return true;
+  }
+
+  redeployGoat(source: string, target: CellNumber): boolean {
+    if (
+      this.state.gameOver ||
+      !(this.state.expansions?.greenValley || this.state.expansions?.bigMountain) ||
+      target < 5 ||
+      target > 10 ||
+      !Number.isInteger(target) ||
+      this.hasGoat(target) ||
+      !this.removeGoat(source)
+    )
+      return false;
+    this.state.playerPieces[target].push(this.getCurrentPlayer().color);
+    this.addLog(`Redeployed a goat to the foot of ${target}`);
+    return true;
+  }
+
+  moveToBigMountain(target: number, source: string): boolean {
+    if (
+      this.state.gameOver ||
+      !this.state.expansions?.bigMountain ||
+      !Number.isInteger(target) ||
+      target < 11 ||
+      target > 24 ||
+      this.getSelectedDiceSum() !== target ||
+      this.state.bigMountain?.[target] ||
+      !this.removeGoat(source)
+    )
+      return false;
+    this.state.bigMountain![target] = this.getCurrentPlayer().color;
+    for (const die of this.state.dice)
+      if (die.selected && !die.used) {
+        die.used = true;
+        die.selected = false;
+        die.canChange = false;
+      }
+    this.addLog(`Placed a goat on Big Mountain ${target}`);
+    return true;
+  }
+
+  private enterValley(mountain: CellNumber): void {
+    const color = this.getCurrentPlayer().color;
+    this.removeGoat(`mountain:${mountain}`);
+    this.state.valley ||= [];
+    this.state.valley.push({ color, mountain });
+    this.addLog(`Moved a goat from ${mountain} to Green Valley`);
+  }
+
+  expansionScores(): number[] {
+    const scores = this.state.players.map(() => 0);
+    const ranks =
+      this.state.numPlayers === 2
+        ? [12, 8, 4]
+        : this.state.numPlayers === 3
+          ? [16, 12, 8, 4]
+          : [15, 12, 9, 6, 3];
+    Object.entries(this.state.bigMountain || {})
+      .sort((a, b) => Number(b[0]) - Number(a[0]))
+      .forEach(([, color], rank) => {
+        scores[this.state.players.findIndex((p) => p.color === color)] += ranks[rank] || 0;
+      });
+    for (const goat of this.state.valley || [])
+      scores[this.state.players.findIndex((p) => p.color === goat.color)] += Math.ceil(
+        goat.mountain / 2
+      );
+    return scores;
+  }
+
+  private scoreExpansions(): void {
+    const scores = this.expansionScores();
+    this.state.players.forEach((player, i) => {
+      player.score += scores[i];
+    });
   }
 
   placePieceInCell(cellNumber: CellNumber, rowIndex: number): boolean {

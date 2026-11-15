@@ -4,7 +4,6 @@ node_modules/
 .pnp.js
 package-lock.json
 yarn.lock
-pnpm-lock.yaml
 .pnpm-store/
 
 # Testing
@@ -26,3 +25,5 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+
+.data/

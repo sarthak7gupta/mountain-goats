@@ -93,6 +93,7 @@ const MountainColumn: React.FC<MountainColumnProps> = ({
       [PlayerColor.WHITE]: '#F5F5F5',
       [PlayerColor.RED]: '#F44336',
       [PlayerColor.YELLOW]: '#FFEB3B',
+      [PlayerColor.GREEN]: '#437b54',
     };
     return colors[color] || '#fff';
   };

@@ -141,7 +141,7 @@ describe('GameEngine', () => {
       game.state.dice[0].canChange = true;
       const originalValue = game.state.dice[0].value;
 
-      game.changeDieValue(0, 1); // Can't change to 1
+      game.changeDieValue(0, 0); // Faces must be between 1 and 6
       expect(game.state.dice[0].value).toBe(originalValue); // Should remain unchanged
 
       game.changeDieValue(0, 7); // Can't change to 7

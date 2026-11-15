@@ -415,6 +415,7 @@ function App() {
       [PlayerColor.WHITE]: 'linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 50%, #EEEEEE 100%)',
       [PlayerColor.RED]: 'linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 50%, #EF9A9A 100%)',
       [PlayerColor.YELLOW]: 'linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 50%, #FFF59D 100%)',
+      [PlayerColor.GREEN]: '#437b54',
     };
     return gradients[color] || 'linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 50%, #81D4FA 100%)';
   };
