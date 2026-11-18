@@ -6,7 +6,13 @@ interface Listing {
   capacity: number;
   expansions: { bigMountain: boolean; greenValley: boolean };
 }
-export default function PublicRooms({ onJoin }: { onJoin: (code: string) => void }) {
+export default function PublicRooms({
+  onJoin,
+  requiresLogin = false,
+}: {
+  onJoin: (code: string) => void;
+  requiresLogin?: boolean;
+}) {
   const [rooms, setRooms] = useState<Listing[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -39,7 +45,11 @@ export default function PublicRooms({ onJoin }: { onJoin: (code: string) => void
     <section className="panel" aria-label="Public rooms">
       <p className="eyebrow">FIND YOUR NEXT CREW</p>
       <h2>Open expeditions</h2>
-      <p>Join a public room as a guest. Enter your name above, choose a room, then join.</p>
+      <p>
+        {requiresLogin
+          ? 'Sign in to claim a seat in a public room. Your seat follows your account to every device.'
+          : 'Join a public room as a guest. Enter your name above, choose a room, then join.'}
+      </p>
       {loading ? (
         <p role="status">Looking for open rooms…</p>
       ) : error ? (
