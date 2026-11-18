@@ -107,3 +107,17 @@ it('drops the seat on this device when signing out', async () => {
   await screen.findByRole('heading', { name: 'Sign in' });
   await waitFor(() => expect(localStorage.getItem(seatKey)).toBeNull());
 });
+
+it('allows switching to local pass-and-play and back without signing in', async () => {
+  stubServer({
+    'GET /config': () => ({ body: { mode: 'online', login: true } }),
+    'GET /auth/me': () => ({ body: null }),
+    'GET /rooms': () => ({ body: [] }),
+  });
+  render(<MultiplayerApp />);
+  await screen.findByRole('heading', { name: 'Sign in' });
+  fireEvent.click(screen.getByRole('button', { name: /Play pass-and-play on this device/ }));
+  expect(await screen.findByRole('heading', { name: 'Player Setup' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '← Multiplayer' }));
+  expect(await screen.findByRole('heading', { name: 'Gather your crew' })).toBeInTheDocument();
+});
