@@ -292,6 +292,9 @@ export default function MultiplayerApp() {
             </button>
           )}
           {login && !user && <a href="#account">Sign in</a>}
+          <button type="button" className="text-button" onClick={() => setOffline(true)}>
+            Pass &amp; play
+          </button>
           <a href="https://www.yucata.de/en/Rules/MountainGoats" target="_blank" rel="noreferrer">
             Rules ↗
           </a>
@@ -326,7 +329,7 @@ export default function MultiplayerApp() {
               <b>5 · 6 · 7 · 8 · 9 · 10</b>
             </div>
             <p>2–5 players · About 20 minutes</p>
-            <button type="button" className="text-button" onClick={() => setOffline(true)}>
+            <button type="button" className="secondary" onClick={() => setOffline(true)}>
               Play pass-and-play on this device →
             </button>
           </section>

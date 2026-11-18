@@ -32,10 +32,13 @@ try {
   const hostName = `host_${suffix}`;
   const guestName = `guest_${suffix}`;
 
-  // An anonymous visitor cannot create or join.
+  // An anonymous visitor cannot create or join, but can always play pass-and-play locally.
   await host.goto(base);
   if (!(await host.getByRole('button', { name: /Sign in to continue/ }).isDisabled()))
     throw new Error('Anonymous visitor can create a room');
+  await host.getByRole('button', { name: 'Pass & play' }).click();
+  await host.getByRole('heading', { name: 'Player Setup' }).waitFor();
+  await host.getByRole('button', { name: '← Multiplayer' }).click();
 
   await signUp(host, hostName);
   await host.getByLabel('Your name').fill('Alpine host');
