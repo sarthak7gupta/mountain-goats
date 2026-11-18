@@ -25,7 +25,7 @@ export function app(rooms = new Rooms()) {
         if (req.method === 'POST') {
           // Same-origin API only. A deployed landing page navigates to the LAN URL.
           const origin = req.headers.origin;
-          if (origin && origin !== `${'http'}://${req.headers.host}`) throw new RoomError('Open the game at the host address.', 403);
+          if (origin && origin !== process.env.PUBLIC_ORIGIN && origin !== `http://${req.headers.host}`) throw new RoomError('Open the game at the host address.', 403);
           const key = req.socket.remoteAddress || 'unknown';
           const now = Date.now();
           if (limits.size > 1000) for (const [k,v] of limits) if (v.until < now) limits.delete(k);
@@ -33,7 +33,7 @@ export function app(rooms = new Rooms()) {
           if (!limit || limit.until < now) limits.set(key, { count: 1, until: now + 60000 });
           else if (++limit.count > 240) throw new RoomError('Too many requests. Wait a minute.', 429);
         }
-        if (url.pathname === '/api/config' && req.method === 'GET') return json(res, 200, { mode: 'lan' });
+        if (url.pathname === '/api/config' && req.method === 'GET') return json(res, 200, { mode: process.env.MODE === 'online' ? 'online' : 'lan' });
         if (url.pathname === '/api/rooms' && req.method === 'POST') {
           const input = await body(req); const { room, token } = rooms.create(input);
           return json(res, 201, { token, room: rooms.view(room, token) });
@@ -62,14 +62,22 @@ export function app(rooms = new Rooms()) {
       res.writeHead(200, { 'Content-Type': mime[extname(path)] || 'application/octet-stream' }); res.end(req.method === 'HEAD' ? undefined : data);
     } catch (error) { json(res, error instanceof RoomError ? error.status : 500, { error: error instanceof RoomError ? error.message : 'Server error. Try again.' }); }
   });
+  const shutdown = () => { server.close(() => { rooms.close(); process.exit(0); }); };
+  process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 3000);
-  app().listen(port, '0.0.0.0', () => {
+  const online = process.env.MODE === 'online';
+  if (online && !process.env.PUBLIC_ORIGIN) throw new Error('Set PUBLIC_ORIGIN to the HTTPS deployment origin.');
+  const rooms = new Rooms(online ? process.env.DATABASE_PATH || '.data/rooms.sqlite' : undefined);
+  const server = app(rooms);
+  server.listen(port, '0.0.0.0', () => {
     console.log(`Mountain Goats: http://localhost:${port}`);
     for (const addresses of Object.values(networkInterfaces())) for (const address of addresses || []) {
       if (address.family === 'IPv4' && !address.internal) console.log(`Join on this Wi-Fi: http://${address.address}:${port}`);
     }
-    console.log('Keep this host running. Rooms last until the host stops (maximum 24 hours inactive).');
+    console.log(online ? 'Online private rooms; durable SQLite storage enabled.' : 'Keep this host running. Rooms last until the host stops (maximum 24 hours inactive).');
   });
+  const shutdown = () => { server.close(() => { rooms.close(); process.exit(0); }); };
+  process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
 }
