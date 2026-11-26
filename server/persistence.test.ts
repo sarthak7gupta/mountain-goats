@@ -14,6 +14,14 @@ describe('durable private rooms', () => {
    second.act(second.get(room.code),guest,room.revision,{type:'end'}); expect(second.get(room.code).game!.state.currentTurn).toBe(2); second.close();
   } finally { rmSync(dir,{recursive:true,force:true}); }
  });
+ it('boots past an unreadable saved room', () => {
+  const dir=mkdtempSync(join(tmpdir(),'goats-')); const path=join(dir,'rooms.sqlite');
+  try {
+   const first=new Rooms(path); const {room}=first.create({name:'Host',capacity:2});
+   first.database!.prepare('INSERT INTO rooms (code, data) VALUES (?, ?)').run('BROKEN','{not json'); first.close();
+   const second=new Rooms(path); expect(second.get(room.code).seats).toHaveLength(1); expect(()=>second.get('BROKEN')).toThrow('expired'); second.close();
+  } finally { rmSync(dir,{recursive:true,force:true}); }
+ });
  it('does not change live state when the durable write fails', () => {
   const dir=mkdtempSync(join(tmpdir(),'goats-'));
   try {

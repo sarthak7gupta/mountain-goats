@@ -32,10 +32,13 @@ export class Rooms {
     mkdirSync(dirname(databasePath), { recursive: true });
     this.database = new DatabaseSync(databasePath);
     this.database.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, data TEXT NOT NULL)');
-    for (const row of this.database.prepare('SELECT data FROM rooms').all()) {
-      const saved = JSON.parse(String(row.data));
-      saved.game = saved.game ? GameEngine.deserialize(JSON.stringify(saved.game)) : null;
-      this.rooms.set(saved.code, saved);
+    for (const row of this.database.prepare('SELECT code, data FROM rooms').all()) {
+      // One unreadable row must not stop the server from booting.
+      try {
+        const saved = JSON.parse(String(row.data));
+        saved.game = saved.game ? GameEngine.deserialize(JSON.stringify(saved.game)) : null;
+        this.rooms.set(saved.code, saved);
+      } catch { console.warn(`Skipping unreadable room ${String(row.code)}.`); }
     }
     this.prune();
   }
