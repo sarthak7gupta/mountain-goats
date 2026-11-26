@@ -16,5 +16,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    // Password hashing and full UI flows can exceed 5s when every suite runs in parallel.
+    testTimeout: 20000,
   },
 });

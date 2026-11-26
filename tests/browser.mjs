@@ -1,0 +1,32 @@
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined});
+try {
+ const desktop=await browser.newContext({viewport:{width:1440,height:1000}});
+ const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+ const host=await desktop.newPage(),guest=await mobile.newPage();
+ const errors=[]; for(const p of [host,guest]) p.on('pageerror',e=>errors.push(e.message));
+ await host.goto('http://localhost:3000');
+ await host.getByLabel('Your name').fill('Alpine host');
+ await host.getByLabel('Seats').selectOption('2');
+ await host.getByLabel('Big Mountain').check(); await host.getByLabel('Green Valley').check();
+ await host.getByRole('button',{name:'Create a room'}).click();
+ await host.getByRole('heading',{name:'Your expedition starts here.'}).waitFor();
+ const link=await host.getByLabel('Join link').inputValue();
+ await guest.goto(link); await guest.getByLabel('Your name').fill('Mobile guest');
+ await guest.getByRole('button',{name:'Join the expedition'}).click();
+ await host.getByRole('button',{name:'Start with 2 players'}).waitFor();
+ await host.getByRole('button',{name:'Start with 2 players'}).click();
+ await host.getByRole('heading',{name:'Your move. Aim higher.'}).waitFor();
+ await guest.getByRole('heading',{name:'Alpine host is climbing.'}).waitFor();
+ if(!await guest.getByRole('button',{name:'End turn'}).isDisabled()) throw new Error('Guest may control host turn');
+ const dice=host.getByRole('button',{name:/^Die \d:/}); await dice.first().click();
+ await host.getByRole('button',{name:/^Die 1:/}).and(host.locator('[aria-pressed="true"]')).waitFor();
+ await host.getByRole('button',{name:'End turn'}).click(); await host.getByRole('button',{name:'Pass turn',exact:true}).click();
+ await guest.getByRole('heading',{name:'Your move. Aim higher.'}).waitFor();
+ await guest.reload(); await guest.getByRole('heading',{name:'Your move. Aim higher.'}).waitFor();
+ const width=await guest.evaluate(()=>({viewport:innerWidth,doc:document.documentElement.scrollWidth}));
+ if(width.doc>width.viewport) throw new Error(`Mobile overflow ${JSON.stringify(width)}`);
+ await host.screenshot({path:'/tmp/goats-desktop.png',fullPage:true}); await guest.screenshot({path:'/tmp/goats-mobile.png',fullPage:true});
+ if(errors.length) throw new Error(errors.join('\n'));
+ console.log('PASS: desktop host + mobile guest, invite, expansion selection, start, turn authorization, selection, turn sync, refresh/rejoin, no page errors, no viewport overflow');
+}finally{await browser.close()}

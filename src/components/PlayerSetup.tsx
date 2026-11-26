@@ -32,7 +32,11 @@ const PlayerSetup: React.FC<PlayerSetupProps> = ({ onStart }) => {
     if (players.length < 4) {
       setPlayers([
         ...players,
-        { name: `Player ${players.length + 1}`, color: colorOrder[players.length] },
+        {
+          name: `Player ${players.length + 1}`,
+          // After a removal the next index can still be taken; use the first free colour.
+          color: colorOrder.find((c) => !players.some((p) => p.color === c)) ?? colorOrder[0],
+        },
       ]);
     }
   };
@@ -114,14 +118,15 @@ const PlayerSetup: React.FC<PlayerSetupProps> = ({ onStart }) => {
   };
 
   return (
-    <div className="player-setup" role="main">
+    <main className="player-setup">
       <div className="setup-container">
         <h2>Player Setup</h2>
 
         <div className="players-list">
           {players.map((player, index) => (
+            // biome-ignore lint/a11y/noStaticElementInteractions: Drag-to-reorder is a pointer-only enhancement; names and removal stay keyboard accessible.
             <div
-              key={index}
+              key={player.color}
               className={`player-input-row ${draggedIndex === index ? 'dragging' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
               draggable
               onDragStart={() => handleDragStart(index)}
@@ -130,7 +135,7 @@ const PlayerSetup: React.FC<PlayerSetupProps> = ({ onStart }) => {
               onDrop={(e) => handleDrop(e, index)}
               onDragEnd={handleDragEnd}
             >
-              <div className="drag-handle" aria-label="Drag to reorder" title="Drag to reorder">
+              <div className="drag-handle" aria-hidden="true" title="Drag to reorder">
                 ⋮⋮
               </div>
               <div className={`player-color-indicator ${getColorClass(player)}`}></div>
@@ -190,7 +195,7 @@ const PlayerSetup: React.FC<PlayerSetupProps> = ({ onStart }) => {
           {players.length === 4 && <p className="info-message">Maximum 4 players</p>}
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

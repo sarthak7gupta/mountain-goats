@@ -25,12 +25,13 @@ const GameLog: React.FC<GameLogProps> = ({ gameEngine }) => {
           <div className="log-empty">{i18n.t('noActionsYet')}</div>
         ) : (
           <ul className="log-entries">
+            {/* Newest first, keyed by position in the append-only log so keys never shift. */}
             {log
-              .slice()
+              .map((entry, position) => ({ entry, position }))
               .reverse()
-              .map((entry, index) => (
+              .map(({ entry, position }, index) => (
                 <li
-                  key={`${entry.turn}-${index}`}
+                  key={position}
                   className={`log-entry ${index === 0 ? 'latest' : ''}`}
                   aria-label={`${i18n.t('turn')} ${entry.turn}, ${entry.playerName}, ${entry.action}`}
                 >

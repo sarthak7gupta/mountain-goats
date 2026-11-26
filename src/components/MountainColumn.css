@@ -65,6 +65,9 @@
 
 /* Mountain Cards */
 .mountain-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -353,4 +356,14 @@
   font-size: 0.9rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   z-index: 10;
+}
+
+/* Movable goats are real buttons; keep them looking like the static goats. */
+button.player-marker,
+button.goat-token {
+  padding: 0;
+  font-family: inherit;
+  line-height: 1;
+  color: inherit;
+  cursor: pointer;
 }

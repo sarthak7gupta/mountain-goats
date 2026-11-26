@@ -58,8 +58,8 @@ describe('MountainColumn', () => {
 
     render(<MountainColumn gameEngine={game} cellNumber={CellNumber.FIVE} forceUpdate={vi.fn()} />);
 
-    // There are multiple elements with "valid target" text, so use getAllByLabelText and check first one
-    const indicators = screen.getAllByLabelText(/^Valid target$/);
-    expect(indicators.length).toBeGreaterThan(0);
+    // The token announces the valid target; the visual check mark is hidden from screen readers.
+    expect(screen.getByRole('img', { name: /Valid target$/ })).toBeInTheDocument();
+    expect(screen.getByText('✓')).toHaveAttribute('aria-hidden', 'true');
   });
 });

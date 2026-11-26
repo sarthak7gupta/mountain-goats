@@ -233,6 +233,7 @@ const DiceWidget: React.FC<DiceWidgetProps> = ({ gameEngine, forceUpdate }) => {
 
           return (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: Four fixed dice slots; the value in the key replays the roll animation.
               key={`die-${index}-v${die.value}`}
               style={{ position: 'relative', marginBottom: isChanging ? '4rem' : '0' }}
             >

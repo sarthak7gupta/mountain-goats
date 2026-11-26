@@ -72,7 +72,8 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   </div>
 );
 
-function App() {
+/** `resume` keeps the saved pass-and-play game when App mounts after the page has loaded. */
+function App({ resume = false }: { resume?: boolean } = {}) {
   const [gameEngine, setGameEngine] = useState<GameEngine | null>(null);
   const [updateTrigger, setUpdateTrigger] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
@@ -83,7 +84,8 @@ function App() {
   const [language, setLanguage] = useState<string>('en');
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
 
-  const forceUpdate = () => setUpdateTrigger((v) => v + 1);
+  // Stable identity, so callbacks and the keyboard listener are not rebuilt on every render.
+  const forceUpdate = useCallback(() => setUpdateTrigger((v) => v + 1), []);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -110,13 +112,17 @@ function App() {
   }, [language, soundMuted]);
 
   // Load game state from localStorage on mount
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Runs once on mount; `resume` only matters then.
   useEffect(() => {
     const now = Date.now();
     const lastSessionTime = sessionStorage.getItem(SESSION_FLAG);
     const SESSION_TIMEOUT = 1000; // 1 second - if page was closed for longer, treat as hard refresh
 
     // Check if this is a hard refresh (session flag missing or too old)
-    if (!lastSessionTime || now - Number.parseInt(lastSessionTime, 10) > SESSION_TIMEOUT) {
+    if (
+      !resume &&
+      (!lastSessionTime || now - Number.parseInt(lastSessionTime, 10) > SESSION_TIMEOUT)
+    ) {
       // Hard refresh or first visit - clear localStorage
       localStorage.removeItem(STORAGE_KEY);
       sessionStorage.setItem(SESSION_FLAG, now.toString());
@@ -155,10 +161,10 @@ function App() {
     return () => {
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, []);
 
   // Sync preferences from gameEngine to standalone state
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The engine mutates in place; updateTrigger marks each change.
   useEffect(() => {
     if (gameEngine) {
       if (gameEngine.state.language && gameEngine.state.language !== language) {
@@ -174,6 +180,7 @@ function App() {
   // Save game state to localStorage whenever it changes
   // Use a ref to track the last saved state to avoid unnecessary saves
   const lastSavedStateRef = useRef<string>('');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The engine mutates in place; updateTrigger marks each change.
   useEffect(() => {
     if (gameEngine) {
       try {
@@ -233,6 +240,13 @@ function App() {
       // Don't handle shortcuts if typing in an input field
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+      // Enter, Space and Backspace keep their native meaning on focused controls.
+      if (
+        ['Enter', ' ', 'Backspace'].includes(e.key) &&
+        ['BUTTON', 'SELECT', 'A', 'SUMMARY'].includes(target.tagName)
+      ) {
         return;
       }
 
@@ -339,12 +353,12 @@ function App() {
 
       // Enter to move goat on valid mountain
       if (e.key === 'Enter') {
-        e.preventDefault();
         const validTargets = gameEngine.getValidMountainTargets();
         if (validTargets.length > 0) {
           const targetMountain = validTargets[0];
           const moved = gameEngine.moveGoatUpMountain(targetMountain);
           if (moved) {
+            e.preventDefault();
             forceUpdate();
           }
         }
@@ -415,6 +429,7 @@ function App() {
       [PlayerColor.WHITE]: 'linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 50%, #EEEEEE 100%)',
       [PlayerColor.RED]: 'linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 50%, #EF9A9A 100%)',
       [PlayerColor.YELLOW]: 'linear-gradient(135deg, #FFFDE7 0%, #FFF9C4 50%, #FFF59D 100%)',
+      [PlayerColor.GREEN]: '#437b54',
     };
     return gradients[color] || 'linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 50%, #81D4FA 100%)';
   };
