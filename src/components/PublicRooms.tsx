@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react';
+import type { PublicRoom } from '../platform/protocol';
 
-interface Listing {
-  code: string;
-  players: number;
-  capacity: number;
-  expansions: { bigMountain: boolean; greenValley: boolean };
-}
+type Listing = PublicRoom<{ bigMountain: boolean; greenValley: boolean }>;
 export default function PublicRooms({
   onJoin,
   requiresLogin = false,
@@ -68,8 +64,8 @@ export default function PublicRooms({
                 <strong>Room {room.code}</strong>
                 <small>
                   {room.players}/{room.capacity} players ·{' '}
-                  {room.expansions.bigMountain ? 'Big Mountain' : 'Base game'}
-                  {room.expansions.greenValley && ' + Green Valley'}
+                  {room.options.bigMountain ? 'Big Mountain' : 'Base game'}
+                  {room.options.greenValley && ' + Green Valley'}
                 </small>
               </div>
               <button

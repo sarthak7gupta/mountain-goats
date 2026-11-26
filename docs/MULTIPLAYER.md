@@ -1,6 +1,6 @@
 # Multiplayer versions
 
-The PRs form a stack. Merge v1 → v2 → v3 → v4. Each version is independently runnable.
+The PRs form a stack. Merge v1 → v2 → v3 → v4 → v5. Each version is independently runnable.
 
 ## v1 — Wi-Fi, no hosted backend
 
@@ -36,7 +36,7 @@ Deploy the included Dockerfile to one Node/Docker service, expose port 3000 behi
 
 For a local backend check: `PUBLIC_ORIGIN=http://localhost:3000 pnpm start`. `DATABASE_PATH` defaults to `.data/rooms.sqlite` locally. Node 22.13+ is required for native SQLite. A deployment must use **one process / one replica**; room authority is in memory with SQLite persistence, so multiple processes would violate concurrency invariants. Do not use ephemeral storage for an online deployment.
 
-Every accepted room mutation is saved atomically to SQLite before being acknowledged or applied to live state. WAL mode supports safe crash recovery. Rooms, seats, invite codes, game state and revisions survive a restart. Disk-write failures leave live state unchanged and return an error. Startup fails rather than silently discarding an unreadable database. Rooms still expire after 24 hours inactive. Stop the server before copying the database plus its WAL files, or use SQLite's backup facility; keep backups private because seat credentials grant control.
+Every accepted room mutation is saved atomically to SQLite before being acknowledged or applied to live state. WAL mode supports safe crash recovery. Rooms, seats, invite codes, game state and revisions survive a restart. Disk-write failures leave live state unchanged and return an error. An unreadable saved room is skipped with a warning instead of stopping startup. Rooms still expire after 24 hours inactive. Stop the server before copying the database plus its WAL files, or use SQLite's backup facility; keep backups private because seat credentials grant control.
 
 Build: `docker build -t mountain-goats .`; run with a mounted persistent volume, `MODE=online`, `PUBLIC_ORIGIN` and `DATABASE_PATH`. Provisioning a hosted service and DNS is a separate deployment action; this PR adds the deployable backend rather than selecting a paid host automatically.
 
@@ -54,3 +54,28 @@ Select **Public room** when creating an expedition to list it in **Open expediti
 - **Rate limits.** Sign-in and sign-up accept 12 attempts per client per minute; room writes accept 240. Behind a reverse proxy, set `TRUST_PROXY=1` so limits use the client address from `X-Forwarded-For` instead of the proxy's address. Do not set it when the server is exposed directly.
 
 Browser check: build, start `PORT=3111 MODE=online PUBLIC_ORIGIN=http://localhost:3111 DATABASE_PATH=/tmp/goats-e2e.sqlite pnpm exec tsx server/http.ts`, then run `BASE=http://localhost:3111 node tests/browser-online.mjs`.
+
+## v5 — Reusable game platform, live updates, production deployment
+
+The multiplayer server is now a game-agnostic platform in `server/platform/` (rooms, seats, accounts, SQLite persistence, rate limits, HTTP API) plus a browser hook in `src/platform/useRoom.ts`. Mountain Goats is one `GameDefinition` in `server/mountainGoats.ts`. See [ENGINE.md](ENGINE.md) to host another game.
+
+- **Live updates.** Clients long-poll `GET /api/rooms/:code?since=<revision>`: the server answers the moment the room changes, or after 25 s with the current room. Moves appear instantly and an idle client makes ~2 requests a minute instead of 50. Polls pause in background tabs and back off (1 s → 15 s) while the network is down. Open long-polls are capped at 2,000 per process.
+- **Stability.** Idle rooms expire in a background sweep instead of a scan on every request; SQLite statements are prepared once. Shutdown answers open long-polls, finishes in-flight requests, closes the database, and forces exit after 10 s. Unexpected errors are logged server-side and answered with a generic 500.
+- **Health.** `GET /api/health` checks the database and reports room and waiting-connection counts; the Docker `HEALTHCHECK` uses it.
+- **Caching.** Fingerprinted files under `/assets/` are served `immutable` for a year; `index.html` is always revalidated, so a deploy is picked up on the next load.
+- **Smaller image.** The Dockerfile builds in one stage and ships only production dependencies, the server and `dist/` (the runtime install is ~26 MB of packages).
+
+### Deploying
+
+The server keeps authoritative rooms in memory with SQLite as the durable copy, so run **exactly one instance** with a persistent volume at `/data`. That fits any single-container host (Fly.io with a volume, Render with a disk, Railway, a small VPS). Do not autoscale it.
+
+On your own server, `deploy/compose.yaml` runs the game behind Caddy with automatic HTTPS:
+
+```sh
+DOMAIN=goats.example.com docker compose -f deploy/compose.yaml up -d --build
+```
+
+Back up `/data/rooms.sqlite` with SQLite's online backup (`sqlite3 /data/rooms.sqlite ".backup /backup/rooms.sqlite"`) or stream it continuously with Litestream. Keep backups private: they contain seat credentials and password hashes.
+
+Outgrowing one instance means moving room state to a shared store (e.g. Postgres) and routing each room to one process, or putting rooms on a per-room actor service such as Cloudflare Durable Objects. The `GameDefinition` contract does not change in either case; only `GameRooms` would.
+

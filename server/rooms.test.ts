@@ -17,13 +17,13 @@ describe('authoritative rooms', () => {
     expect(() => rooms.join(room,'C')).toThrow('started');
     expect(() => rooms.act(room,guest,room.revision,{type:'end'})).toThrow('turn');
     expect(() => rooms.view(room,'bad')).toThrow('Rejoin');
-    expect(room.game!.state.players.map(p => p.name)).toEqual(['A','B']);
+    expect(room.state!.players.map(p => p.name)).toEqual(['A','B']);
   });
   it('rejects replayed and malformed commands without mutating the game', () => {
-    const {rooms,room,token} = started(); const before = room.game!.serialize();
+    const {rooms,room,token} = started(); const before = JSON.stringify(room.state);
     for (const action of [{type:'change',index:0,value:99},{type:'move',mountain:42},{type:'roll'},{type:'select',index:0.5},null]) {
       expect(() => rooms.act(room,token,room.revision,action)).toThrow();
-      expect(room.game!.serialize()).toBe(before);
+      expect(JSON.stringify(room.state)).toBe(before);
     }
     const revision = room.revision;
     rooms.act(room,token,revision,{type:'select',index:0});
@@ -33,10 +33,10 @@ describe('authoritative rooms', () => {
   it('rolls once on start and each end, with no client reroll action', () => {
     const {rooms,room,token,guest} = started();
     rooms.act(room,token,room.revision,{type:'end'});
-    expect(room.game!.state.currentPlayerIndex).toBe(1);
+    expect(room.state!.currentPlayerIndex).toBe(1);
     rooms.act(room,guest,room.revision,{type:'end'});
-    expect(room.game!.state.currentTurn).toBe(2);
-    expect(room.game!.state.dice.every(d => d.value >= 1 && d.value <= 6 && !d.used)).toBe(true);
+    expect(room.state!.currentTurn).toBe(2);
+    expect(room.state!.dice.every(d => d.value >= 1 && d.value <= 6 && !d.used)).toBe(true);
   });
   it('does not bump the revision for commands that change nothing', () => {
     const {rooms,room,token} = started(); const revision = room.revision;
@@ -73,7 +73,7 @@ describe('HTTP multiple devices', () => {
       const denied = await call(`/rooms/${code}/action`,host.data.token,{revision,action:{type:'end'}},{Origin:'https://evil.example'}); expect(denied.status).toBe(403);
       const [one,two] = await Promise.all([call(`/rooms/${code}/action`,host.data.token,{revision,action:{type:'end'}}),call(`/rooms/${code}/action`,host.data.token,{revision,action:{type:'end'}})]);
       expect([one.status,two.status].sort()).toEqual([200,409]);
-      const reconnect = await call(`/rooms/${code}`,guest.data.token); expect(reconnect.data.you).toBe(1); expect(reconnect.data.game.currentPlayerIndex).toBe(1);
+      const reconnect = await call(`/rooms/${code}`,guest.data.token); expect(reconnect.data.you).toBe(1); expect(reconnect.data.state.currentPlayerIndex).toBe(1);
       expect((await call(`/rooms/${code}`)).status).toBe(401);
       expect((await call('/rooms',undefined,{name:'Bad',capacity:7})).status).toBe(400);
       const config = await call('/config'); expect(config.data.mode).toBe('lan'); expect(Array.isArray(config.data.lanUrls)).toBe(true);

@@ -1,0 +1,28 @@
+# One-host production deployment: the game plus Caddy for automatic HTTPS.
+#   DOMAIN=goats.example.com docker compose -f deploy/compose.yaml up -d --build
+# Point the domain's DNS at this host first; Caddy obtains the certificate.
+services:
+  game:
+    build: ..
+    restart: unless-stopped
+    environment:
+      PUBLIC_ORIGIN: https://${DOMAIN:?Set DOMAIN to your public hostname}
+      TRUST_PROXY: "1"
+    volumes:
+      - game-data:/data
+    # Long-polls and SQLite assume exactly one game process.
+    deploy:
+      replicas: 1
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [game]
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+volumes:
+  game-data:
+  caddy-data:

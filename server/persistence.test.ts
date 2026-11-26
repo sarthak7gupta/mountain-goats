@@ -11,7 +11,7 @@ describe('durable private rooms', () => {
    const first=new Rooms(path); const {room,token}=first.create({name:'Host',capacity:2}); const guest=first.join(room,'Guest'); first.start(room,token,room.revision);
    first.act(room,token,room.revision,{type:'end'}); const before=JSON.stringify(first.view(room,guest)); first.close();
    const second=new Rooms(path); expect(JSON.stringify(second.view(second.get(room.code),guest))).toBe(before);
-   second.act(second.get(room.code),guest,room.revision,{type:'end'}); expect(second.get(room.code).game!.state.currentTurn).toBe(2); second.close();
+   second.act(second.get(room.code),guest,room.revision,{type:'end'}); expect(second.get(room.code).state!.currentTurn).toBe(2); second.close();
   } finally { rmSync(dir,{recursive:true,force:true}); }
  });
  it('boots past an unreadable saved room', () => {

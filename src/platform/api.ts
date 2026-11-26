@@ -1,19 +1,4 @@
-export interface User {
-  id: number;
-  username: string;
-}
-export interface RoomSummary {
-  code: string;
-  token: string;
-  started: boolean;
-  finished: boolean;
-}
-export interface ServerConfig {
-  mode: 'lan' | 'online';
-  login: boolean;
-  /** LAN mode only: addresses other devices on the network can open. */
-  lanUrls?: string[];
-}
+export type { RoomSummary, ServerConfig, User } from './protocol';
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -27,6 +12,8 @@ interface RequestOptions {
   token?: string;
   data?: unknown;
   method?: 'GET' | 'POST';
+  /** Milliseconds before giving up; long-poll requests wait longer than the default. */
+  timeout?: number;
 }
 /**
  * One JSON client for every server call. Session cookies travel with the
@@ -34,7 +21,7 @@ interface RequestOptions {
  */
 export async function request<T = unknown>(
   path: string,
-  { token, data, method }: RequestOptions = {}
+  { token, data, method, timeout = 10000 }: RequestOptions = {}
 ): Promise<T> {
   let response: Response;
   try {
@@ -46,7 +33,7 @@ export async function request<T = unknown>(
       },
       body: data === undefined ? undefined : JSON.stringify(data),
       credentials: 'same-origin',
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(timeout),
     });
   } catch {
     throw new ApiError('Connection failed. Check your network and try again.');
