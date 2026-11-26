@@ -79,7 +79,10 @@ export default function MultiplayerApp() {
         setLogin(config.login);
         if (!config.login) return null;
         return call<User | null>('/auth/me')
-          .then((account) => setUser(account))
+          .then((account) => {
+            setUser(account);
+            if (account) setName((old) => old || account.username);
+          })
           .catch(() => setUser(null));
       })
       .catch(() => setAvailable(false))
@@ -217,6 +220,7 @@ export default function MultiplayerApp() {
   }
   function signedIn(account: User | null) {
     setUser(account);
+    if (account) setName((old) => old || account.username);
     setError('');
   }
   async function signOut() {
@@ -246,6 +250,14 @@ export default function MultiplayerApp() {
         <App resume />
       </>
     );
+  const accountPanel = (
+    <AccountPanel
+      user={user}
+      onUser={signedIn}
+      onResume={(summary) => void resume(summary)}
+      onError={setError}
+    />
+  );
   const game = room?.game;
   const engine = game ? GameEngine.deserialize(JSON.stringify(game)) : null;
   const mine = !!game && game.currentPlayerIndex === room?.you && !game.gameOver;
@@ -286,12 +298,13 @@ export default function MultiplayerApp() {
         </a>
         <div className="header-links">
           {login && user && <span className="account-chip">Signed in as {user.username}</span>}
-          {login && user && (
+          {/* Outside a room the account panel has its own sign-in and sign-out controls. */}
+          {login && user && session && (
             <button type="button" className="text-button" onClick={() => void signOut()}>
               Sign out
             </button>
           )}
-          {login && !user && <a href="#account">Sign in</a>}
+          {login && !user && !room && <a href="#account">Sign in</a>}
           <button type="button" className="text-button" onClick={() => setOffline(true)}>
             Pass &amp; play
           </button>
@@ -334,6 +347,7 @@ export default function MultiplayerApp() {
             </button>
           </section>
           <div className="welcome-side">
+            {login && !user && accountPanel}
             <section className="panel">
               <p className="eyebrow">BASE CAMP</p>
               <h2>Gather your crew</h2>
@@ -460,14 +474,7 @@ export default function MultiplayerApp() {
                 </form>
               )}
             </section>
-            {login && (
-              <AccountPanel
-                user={user}
-                onUser={signedIn}
-                onResume={(summary) => void resume(summary)}
-                onError={setError}
-              />
-            )}
+            {login && user && accountPanel}
           </div>
         </main>
       ) : !room ? (

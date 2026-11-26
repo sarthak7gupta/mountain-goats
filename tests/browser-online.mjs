@@ -5,7 +5,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const base = process.env.BASE || 'http://localhost:3111';
 const password = 'correct-horse-battery-staple';
 const suffix = Date.now().toString(36).slice(-5);
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROMIUM_PATH || undefined });
 const errors = [];
 const watch = (page) => page.on('pageerror', (e) => errors.push(e.message));
 async function signUp(page, username) {

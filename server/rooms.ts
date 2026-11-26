@@ -101,8 +101,13 @@ export class Rooms {
     });
   }
   authorizeUser(room: Room, token: string, userId: number): void {
-    const seat = room.seats[this.seat(room,token)];
-    if (seat.userId !== userId) throw new RoomError('This seat belongs to another account.',403);
+    const index = this.seat(room,token);
+    // Seats saved before accounts existed have no owner: the first signed-in holder of the token claims it.
+    if (room.seats[index].userId === undefined) {
+      this.commit(room, { ...room, seats: room.seats.map((s, i) => i === index ? { ...s, userId } : s) });
+      return;
+    }
+    if (room.seats[index].userId !== userId) throw new RoomError('This seat belongs to another account.',403);
   }
   seat(room: Room, token: string): number {
     const seat = room.seats.findIndex(s => matches(s.token, token));

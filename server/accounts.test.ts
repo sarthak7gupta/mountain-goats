@@ -76,4 +76,11 @@ describe('accounts', () => {
     const sessions = await accounts.login({ username: 'goat', password });
     expect(sessions.token).toBeTruthy();
   });
+  it('lets the signed-in holder of a pre-account seat claim it, and nobody after', () => {
+    const { rooms } = store();
+    const { room, token } = rooms.create({ name: 'Host', capacity: 2 });
+    rooms.authorizeUser(room, token, 1);
+    expect(room.seats[0].userId).toBe(1);
+    expect(() => rooms.authorizeUser(room, token, 2)).toThrow('another account');
+  });
 });

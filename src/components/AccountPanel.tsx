@@ -45,9 +45,8 @@ export default function AccountPanel({ user, onUser, onResume, onError }: Props)
       setPassword('');
       onUser(account);
     } catch (e) {
-      const message = (e as Error).message;
-      setError(message);
-      onError(message);
+      // Shown inline beside the form; the page banner would repeat it.
+      setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -85,8 +84,12 @@ export default function AccountPanel({ user, onUser, onResume, onError }: Props)
                     {room.finished ? 'Finished' : room.started ? 'In progress' : 'Waiting to start'}
                   </small>
                 </div>
-                <button type="button" onClick={() => onResume(room)}>
-                  Resume room {room.code}
+                <button
+                  type="button"
+                  aria-label={`${room.finished ? 'View result of' : 'Resume'} room ${room.code}`}
+                  onClick={() => onResume(room)}
+                >
+                  {room.finished ? 'View result' : 'Resume'}
                 </button>
               </li>
             ))}

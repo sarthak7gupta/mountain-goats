@@ -46,7 +46,9 @@ it('creates an account and reports the failure of a bad password', async () => {
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'goat' } });
   fireEvent.change(screen.getByLabelText(/Password/), { target: { value: 'correct-horse' } });
   fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
-  await waitFor(() => expect(onError).toHaveBeenCalledWith('Username or password is incorrect.'));
+  // Shown once, inline: the page-level banner is not used for form errors.
+  expect(await screen.findByRole('alert')).toHaveTextContent('Username or password is incorrect.');
+  expect(onError).not.toHaveBeenCalled();
   const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/api/auth/register'));
   expect(call).toBeTruthy();
 });
