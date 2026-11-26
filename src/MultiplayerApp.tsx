@@ -21,19 +21,42 @@ const colors: Record<PlayerColor, string> = {
   yellow: '#e7b746',
   green: '#437b54',
 };
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public status = 0
+  ) {
+    super(message);
+  }
+}
 async function api(path: string, token?: string, data?: unknown) {
-  const response = await fetch(`/api${path}`, {
-    method: data === undefined ? 'GET' : 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: data === undefined ? undefined : JSON.stringify(data),
-    signal: AbortSignal.timeout(10000),
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || 'Connection failed.');
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, {
+      method: data === undefined ? 'GET' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: data === undefined ? undefined : JSON.stringify(data),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch {
+    throw new ApiError('Connection failed. Check your network and try again.');
+  }
+  // A proxy or host error page is not JSON; never surface a parser message.
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok)
+    throw new ApiError(result.error || 'Connection failed. Try again.', response.status);
   return result;
+}
+const loopback = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/;
+/** Describe a goat location id such as `mountain:7`, `big:12` or `valley:0`. */
+export function placeName(location: string, valley: { mountain: number }[] = []): string {
+  const [kind, value] = location.split(':');
+  if (kind === 'mountain') return `Goat on mountain ${value}`;
+  if (kind === 'big') return `Big Mountain space ${value}`;
+  return `Valley goat (from ${valley[Number(value)]?.mountain ?? '?'})`;
 }
 export default function MultiplayerApp() {
   const [offline, setOffline] = useState(false);
@@ -52,7 +75,9 @@ export default function MultiplayerApp() {
   const [recallTarget, setRecallTarget] = useState(5);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [notice, setNotice] = useState('');
+  const [lanUrls, setLanUrls] = useState<string[]>([]);
   const pending = useRef(false);
+  const poke = useRef<() => void>(() => {});
   const adopt = useCallback(
     (next: RoomView) =>
       setRoom((old) =>
@@ -62,33 +87,72 @@ export default function MultiplayerApp() {
   );
   useEffect(() => {
     api('/config')
-      .then(() => setAvailable(true))
+      .then((config) => {
+        setAvailable(true);
+        setLanUrls(Array.isArray(config.lanUrls) ? config.lanUrls : []);
+      })
       .catch(() => setAvailable(false));
   }, []);
   useEffect(() => {
-    if (!session) return;
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 4000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+  const forget = useCallback((message = '') => {
+    localStorage.removeItem(key);
+    setSession(null);
+    setRoom(null);
+    setError(message);
+    history.replaceState(null, '', location.pathname);
+  }, []);
+  useEffect(() => {
+    if (!session || offline) return;
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let inFlight = false;
+    // One request at a time; the next poll is scheduled only after the last settles.
     const refresh = async () => {
+      clearTimeout(timer);
+      if (!active || inFlight) return;
+      if (document.hidden) {
+        timer = setTimeout(refresh, 1200);
+        return;
+      }
+      inFlight = true;
       try {
         const next = await api(`/rooms/${session.code}`, session.token);
-        if (active) {
-          adopt(next);
-          setConnected(true);
-        }
+        if (!active) return;
+        adopt(next);
+        setConnected(true);
+        setError((old) => (old.startsWith('Connection failed') ? '' : old));
       } catch (e) {
-        if (active) {
-          setConnected(false);
-          setError((e as Error).message);
+        if (!active) return;
+        const status = (e as ApiError).status;
+        // The room is gone (expired or the host restarted) or this seat is unknown: stop polling.
+        if (status === 404 || status === 401) {
+          forget(`${(e as Error).message} Your saved seat was removed from this browser.`);
+          return;
         }
+        setConnected(false);
+        setError((e as Error).message);
+      } finally {
+        inFlight = false;
       }
+      if (active) timer = setTimeout(refresh, 1200);
     };
+    poke.current = () => void refresh();
+    const visible = () => {
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener('visibilitychange', visible);
     void refresh();
-    const timer = setInterval(refresh, 1200);
     return () => {
       active = false;
-      clearInterval(timer);
+      clearTimeout(timer);
+      poke.current = () => {};
+      document.removeEventListener('visibilitychange', visible);
     };
-  }, [session, adopt]);
+  }, [session, offline, adopt, forget]);
   async function request(work: () => Promise<void>) {
     if (pending.current) return;
     pending.current = true;
@@ -98,6 +162,8 @@ export default function MultiplayerApp() {
       await work();
     } catch (e) {
       setError((e as Error).message);
+      // Someone else moved first: fetch the latest room right away.
+      if ((e as ApiError).status === 409) poke.current();
     } finally {
       pending.current = false;
       setBusy(false);
@@ -136,11 +202,7 @@ export default function MultiplayerApp() {
       )
     )
       return;
-    localStorage.removeItem(key);
-    setSession(null);
-    setRoom(null);
-    setError('');
-    history.replaceState(null, '', location.pathname);
+    forget();
   }
   if (offline)
     return (
@@ -148,7 +210,7 @@ export default function MultiplayerApp() {
         <button className="return-online" onClick={() => setOffline(false)} type="button">
           ← Multiplayer
         </button>
-        <App />
+        <App resume />
       </>
     );
   const game = room?.game;
@@ -158,6 +220,10 @@ export default function MultiplayerApp() {
   const sum = engine?.getSelectedDiceSum() || 0;
   const locations = engine?.goatLocations() || [];
   const selectedSource = locations.includes(source) ? source : locations[0] || '';
+  // Opened on the host itself: invite with an address other devices can reach.
+  const inviteOrigin =
+    loopback.test(location.hostname) && lanUrls[0] ? lanUrls[0] : location.origin;
+  const invite = room ? `${inviteOrigin}${location.pathname}?room=${room.code}` : '';
   function goat(color: PlayerColor, id: string) {
     const player = game?.players.find((p) => p.color === color);
     return (
@@ -346,17 +412,13 @@ export default function MultiplayerApp() {
           <p>Share this link. Everyone joins from their own device.</p>
           <label>
             Join link
-            <input
-              readOnly
-              value={`${location.origin}${location.pathname}?room=${room.code}`}
-              onFocus={(e) => e.target.select()}
-            />
+            <input readOnly value={invite} onFocus={(e) => e.target.select()} />
           </label>
           <button
             type="button"
             onClick={() => {
               navigator.clipboard
-                ?.writeText(`${location.origin}${location.pathname}?room=${room.code}`)
+                ?.writeText(invite)
                 .then(() => setNotice('Invite link copied.'))
                 .catch(() => setNotice('Select and copy the invite link above.'));
             }}
@@ -389,7 +451,9 @@ export default function MultiplayerApp() {
                 )
               }
             >
-              Start with {room.seats.length} players
+              {room.seats.length < 2
+                ? 'Waiting for another player…'
+                : `Start with ${room.seats.length} players`}
             </button>
           ) : (
             <p>Waiting for the host to start…</p>
@@ -535,11 +599,18 @@ export default function MultiplayerApp() {
             </section>
           )}
           {confirmEnd && (
-            <section className="panel" role="alert">
-              <h2>Pass with unused dice?</h2>
-              <p>Any unused dice will be discarded.</p>
+            <section
+              className="panel confirm-end"
+              role="alertdialog"
+              aria-labelledby="confirm-end-title"
+              aria-describedby="confirm-end-text"
+            >
+              <h2 id="confirm-end-title">Pass with unused dice?</h2>
+              <p id="confirm-end-text">Any unused dice will be discarded.</p>
               <button
                 type="button"
+                // biome-ignore lint/a11y/noAutofocus: Move focus into the confirmation it opens.
+                autoFocus
                 disabled={!canAct}
                 onClick={() => {
                   setConfirmEnd(false);
@@ -560,8 +631,12 @@ export default function MultiplayerApp() {
                   <header>
                     <strong>{m}</strong>
                     <small>
-                      {game.pointTokens.filter((t) => t.available && t.value === m).length} tokens
-                      left
+                      {(() => {
+                        const left = game.pointTokens.filter(
+                          (t) => t.available && t.value === m
+                        ).length;
+                        return `${left} token${left === 1 ? '' : 's'} left`;
+                      })()}
                     </small>
                   </header>
                   <div className="peak-path">
@@ -614,7 +689,7 @@ export default function MultiplayerApp() {
                 >
                   {locations.map((l) => (
                     <option key={l} value={l}>
-                      {l}
+                      {placeName(l, game.valley)}
                     </option>
                   ))}
                 </select>

@@ -663,6 +663,7 @@ export class GameEngine {
   }
 
   hasGoat(mountain: CellNumber): boolean {
+    if (!Number.isInteger(mountain) || mountain < 5 || mountain > 10) return false;
     const color = this.getCurrentPlayer().color;
     return (
       this.state.playerPieces[mountain].includes(color) ||

@@ -38,6 +38,11 @@ describe('authoritative rooms', () => {
     expect(room.game!.state.currentTurn).toBe(2);
     expect(room.game!.state.dice.every(d => d.value >= 1 && d.value <= 6 && !d.used)).toBe(true);
   });
+  it('does not bump the revision for commands that change nothing', () => {
+    const {rooms,room,token} = started(); const revision = room.revision;
+    rooms.act(room,token,revision,{type:'clear'});
+    expect(room.revision).toBe(revision);
+  });
   it('serializes concurrent joins at capacity', () => {
     const rooms = new Rooms(); const {room} = rooms.create({name:'A',capacity:2}); rooms.join(room,'B');
     expect(() => rooms.join(room,'C')).toThrow('full');
@@ -71,6 +76,8 @@ describe('HTTP multiple devices', () => {
       const reconnect = await call(`/rooms/${code}`,guest.data.token); expect(reconnect.data.you).toBe(1); expect(reconnect.data.game.currentPlayerIndex).toBe(1);
       expect((await call(`/rooms/${code}`)).status).toBe(401);
       expect((await call('/rooms',undefined,{name:'Bad',capacity:7})).status).toBe(400);
+      const config = await call('/config'); expect(config.data.mode).toBe('lan'); expect(Array.isArray(config.data.lanUrls)).toBe(true);
+      expect((await fetch(`${origin}/%E0%A4%A`)).status).toBe(404);
     } finally { await new Promise<void>((resolve,reject) => server.close(error => error ? reject(error):resolve())); }
   });
 });

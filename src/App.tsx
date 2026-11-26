@@ -72,7 +72,8 @@ const HeaderButtons: React.FC<HeaderButtonsProps> = ({
   </div>
 );
 
-function App() {
+/** `resume` keeps the saved pass-and-play game when App mounts after the page has loaded. */
+function App({ resume = false }: { resume?: boolean } = {}) {
   const [gameEngine, setGameEngine] = useState<GameEngine | null>(null);
   const [updateTrigger, setUpdateTrigger] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
@@ -116,7 +117,10 @@ function App() {
     const SESSION_TIMEOUT = 1000; // 1 second - if page was closed for longer, treat as hard refresh
 
     // Check if this is a hard refresh (session flag missing or too old)
-    if (!lastSessionTime || now - Number.parseInt(lastSessionTime, 10) > SESSION_TIMEOUT) {
+    if (
+      !resume &&
+      (!lastSessionTime || now - Number.parseInt(lastSessionTime, 10) > SESSION_TIMEOUT)
+    ) {
       // Hard refresh or first visit - clear localStorage
       localStorage.removeItem(STORAGE_KEY);
       sessionStorage.setItem(SESSION_FLAG, now.toString());
@@ -235,6 +239,13 @@ function App() {
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
+      // Enter, Space and Backspace keep their native meaning on focused controls.
+      if (
+        ['Enter', ' ', 'Backspace'].includes(e.key) &&
+        ['BUTTON', 'SELECT', 'A', 'SUMMARY'].includes(target.tagName)
+      ) {
+        return;
+      }
 
       // M to toggle sound
       if (e.key === 'm' || e.key === 'M') {
@@ -339,12 +350,12 @@ function App() {
 
       // Enter to move goat on valid mountain
       if (e.key === 'Enter') {
-        e.preventDefault();
         const validTargets = gameEngine.getValidMountainTargets();
         if (validTargets.length > 0) {
           const targetMountain = validTargets[0];
           const moved = gameEngine.moveGoatUpMountain(targetMountain);
           if (moved) {
+            e.preventDefault();
             forceUpdate();
           }
         }

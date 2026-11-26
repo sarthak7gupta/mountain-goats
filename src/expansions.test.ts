@@ -116,3 +116,11 @@ describe('expansion rules and final round', () => {
     expect(e.state.dice[1].value).toBe(1);
   });
 });
+
+describe('engine input guards', () => {
+  it('treats out-of-range mountains as having no goat instead of throwing', () => {
+    const engine = new GameEngine(2);
+    expect(engine.hasGoat(11 as never)).toBe(false);
+    expect(engine.moveGoatUpMountain(42 as never)).toBe(false);
+  });
+});

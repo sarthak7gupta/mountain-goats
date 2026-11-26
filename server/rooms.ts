@@ -98,7 +98,8 @@ export class Rooms {
         if (!Number.isInteger(a.index) || !Number.isInteger(a.value) || a.index < 0 || a.index > 3 || a.value < 1 || a.value > 6 || !engine.state.dice[a.index].canChange || engine.state.dice[a.index].used) ok = false;
         else engine.changeDieValue(a.index, a.value);
         break;
-      case 'clear': engine.clearDiceSelection(); break;
+      // Clearing an empty group changes nothing: no new revision, no write.
+      case 'clear': if (!engine.state.dice.some(d => d.selected)) return; engine.clearDiceSelection(); break;
       case 'move': ok = Number.isInteger(a.mountain) && a.mountain >= 5 && a.mountain <= 10 && engine.moveGoatUpMountain(a.mountain as CellNumber); break;
       case 'big': ok = typeof a.source === 'string' && engine.moveToBigMountain(a.target, a.source); break;
       case 'redeploy': ok = typeof a.source === 'string' && engine.redeployGoat(a.source, a.mountain as CellNumber); break;

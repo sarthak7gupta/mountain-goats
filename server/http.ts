@@ -11,6 +11,11 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   try { const value = JSON.parse(data || '{}'); if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(); return value; }
   catch { throw new RoomError('Invalid JSON.'); }
 }
+/** Addresses other devices on this network can use to reach the host. */
+export function lanAddresses(port: number): string[] {
+  return Object.values(networkInterfaces()).flatMap(list => list || [])
+    .filter(a => a.family === 'IPv4' && !a.internal).map(a => `http://${a.address}:${port}`);
+}
 function json(res: ServerResponse, status: number, value: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value));
 }
@@ -33,7 +38,7 @@ export function app(rooms = new Rooms()) {
           if (!limit || limit.until < now) limits.set(key, { count: 1, until: now + 60000 });
           else if (++limit.count > 240) throw new RoomError('Too many requests. Wait a minute.', 429);
         }
-        if (url.pathname === '/api/config' && req.method === 'GET') return json(res, 200, { mode: 'lan' });
+        if (url.pathname === '/api/config' && req.method === 'GET') return json(res, 200, { mode: 'lan', lanUrls: lanAddresses(req.socket.localPort || 0) });
         if (url.pathname === '/api/rooms' && req.method === 'POST') {
           const input = await body(req); const { room, token } = rooms.create(input);
           return json(res, 201, { token, room: rooms.view(room, token) });
@@ -53,7 +58,9 @@ export function app(rooms = new Rooms()) {
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') throw new RoomError('Method not allowed.', 405);
       const root = resolve('dist');
-      let pathname = decodeURIComponent(url.pathname).replace(/^\/mountain-goats\//, '/');
+      let pathname: string;
+      try { pathname = decodeURIComponent(url.pathname); } catch { throw new RoomError('Not found.', 404); }
+      pathname = pathname.replace(/^\/mountain-goats\//, '/');
       if (pathname === '/') pathname = '/index.html';
       const path = resolve(root, `.${pathname}`);
       if (!path.startsWith(`${root}/`)) throw new RoomError('Not found.', 404);
@@ -67,9 +74,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const port = Number(process.env.PORT || 3000);
   app().listen(port, '0.0.0.0', () => {
     console.log(`Mountain Goats: http://localhost:${port}`);
-    for (const addresses of Object.values(networkInterfaces())) for (const address of addresses || []) {
-      if (address.family === 'IPv4' && !address.internal) console.log(`Join on this Wi-Fi: http://${address.address}:${port}`);
-    }
+    for (const address of lanAddresses(port)) console.log(`Join on this Wi-Fi: ${address}`);
     console.log('Keep this host running. Rooms last until the host stops (maximum 24 hours inactive).');
   });
 }
