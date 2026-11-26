@@ -12,6 +12,7 @@ import WinScreen from './components/WinScreen';
 import { GameEngine } from './game';
 import { i18n } from './i18n';
 import { CellNumber, PlayerColor } from './models';
+import { useGoatHops } from './useGoatHops';
 import './App.css';
 
 const STORAGE_KEY = 'mountain-goats-game-state';
@@ -83,6 +84,9 @@ function App({ resume = false }: { resume?: boolean } = {}) {
   // Language and sound preferences (used when no game is active)
   const [language, setLanguage] = useState<string>('en');
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
+
+  const board = useRef<HTMLDivElement>(null);
+  useGoatHops(board, updateTrigger);
 
   // Stable identity, so callbacks and the keyboard listener are not rebuilt on every render.
   const forceUpdate = useCallback(() => setUpdateTrigger((v) => v + 1), []);
@@ -502,7 +506,7 @@ function App({ resume = false }: { resume?: boolean } = {}) {
                 <div className="board-area">
                   <BonusTokens gameEngine={gameEngine} />
 
-                  <div className="columns-container">
+                  <div className="columns-container" ref={board}>
                     {Object.values(CellNumber)
                       .filter((v) => typeof v === 'number')
                       .map((cellNum) => (

@@ -124,6 +124,8 @@ const MountainColumn: React.FC<MountainColumnProps> = ({ gameEngine, cellNumber,
                     return canMove ? (
                       <button
                         key={playerColor}
+                        data-goat={`${playerColor}@${cellNumber}`}
+                        data-step={levelNumber}
                         type="button"
                         className={className}
                         style={style}
@@ -134,6 +136,8 @@ const MountainColumn: React.FC<MountainColumnProps> = ({ gameEngine, cellNumber,
                     ) : (
                       <span
                         key={playerColor}
+                        data-goat={`${playerColor}@${cellNumber}`}
+                        data-step={levelNumber}
                         className={className}
                         style={style}
                         role="img"
@@ -165,6 +169,8 @@ const MountainColumn: React.FC<MountainColumnProps> = ({ gameEngine, cellNumber,
           return canMove ? (
             <button
               key={color}
+              data-goat={`${color}@${cellNumber}`}
+              data-step="foot"
               type="button"
               className={className}
               style={style}
@@ -177,6 +183,8 @@ const MountainColumn: React.FC<MountainColumnProps> = ({ gameEngine, cellNumber,
           ) : (
             <span
               key={color}
+              data-goat={`${color}@${cellNumber}`}
+              data-step="foot"
               className={className}
               style={style}
               role="img"

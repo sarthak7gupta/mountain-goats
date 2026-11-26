@@ -4,3 +4,114 @@
 .welcome-side{display:grid;align-content:start;gap:0}.header-links{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.account-chip{font-size:13px;font-weight:650;color:#42584c;background:#e5e9de;border-radius:999px;padding:6px 14px}.expedition .header-links .text-button{padding:0 4px;font-size:14px}.header-links>a{display:inline-flex;align-items:center;min-height:44px}.account-panel form{margin-top:6px}.account-panel .account-error{color:#a3372b;font-size:14px;font-weight:600}.account-panel .text-button{margin-top:12px}.my-rooms{list-style:none;margin:14px 0 20px}.my-rooms li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-top:1px solid #dce1d5}.my-rooms small{display:block;color:#627166;font-size:12px}@media(max-width:900px){.welcome-side{grid-template-columns:1fr}}@media(max-width:550px){.my-rooms li{align-items:start;flex-direction:column;gap:10px}}
 @media(max-width:760px){.expedition-header{flex-wrap:wrap;gap:4px 16px;padding:14px 0}.brand small,.account-chip{display:none}.header-links{gap:4px 14px}}
 .invite-actions{display:flex;flex-wrap:wrap;gap:12px}.open-seat{color:#7a8a7e;font-style:italic}.results ol{list-style:none;padding:0;margin:0 0 18px}.results li{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #dce1d5}.results li span{flex:1}.results li:first-child strong{color:var(--green)}.journal{list-style:none;padding:0}.journal li{padding:6px 0;border-bottom:1px solid #eef0e8}@media(max-width:760px){.board-scroll{overflow-x:visible}.network-board{grid-template-columns:repeat(6,minmax(0,1fr));min-width:0;gap:4px}.peak{padding:10px 3px 6px;border-radius:28px 28px 8px 8px}.peak header strong{font-size:26px}.peak header small{font-size:9px;line-height:1.2}.peak-path{gap:5px;margin:10px 0}.step{min-height:46px;padding:3px 1px}.step small{font-size:7px;letter-spacing:0}.goat{width:20px;height:20px;font-size:10px;border-width:1px}.peak button{font-size:11px;padding:8px 1px;min-height:40px}}
+
+/* ---------- 3D board ---------- */
+/* Each mountain gets its own hue; ledges have visible thickness and cast shadows. */
+.peak {
+  --hue: 110;
+  position: relative;
+  border: none;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(255, 255, 255, 0.75), transparent 60%),
+    linear-gradient(175deg, hsl(var(--hue) 32% 90%) 0%, hsl(var(--hue) 28% 80%) 60%, hsl(var(--hue) 26% 70%) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -10px 18px -10px hsl(var(--hue) 30% 35% / 0.45),
+    0 22px 28px -18px rgba(35, 62, 53, 0.55);
+}
+.peak-5 { --hue: 115; }
+.peak-6 { --hue: 38; }
+.peak-7 { --hue: 18; }
+.peak-8 { --hue: 90; }
+.peak-9 { --hue: 200; }
+.peak-10 { --hue: 205; }
+.peak header strong {
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.8), 0 4px 8px rgba(35, 62, 53, 0.25);
+}
+.step {
+  position: relative;
+  background: linear-gradient(180deg, #fffefa 0%, #f2f1e7 100%);
+  border: 1px solid hsl(var(--hue) 18% 74%);
+  border-radius: 9px;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 5px 0 hsl(var(--hue) 20% 66%),
+    0 9px 12px -6px rgba(35, 62, 53, 0.45);
+}
+/* Snow cap on every summit. */
+.step.summit {
+  background: linear-gradient(180deg, #ffffff 0%, #eef4f8 100%);
+  border-color: #b7c6d2;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 5px 0 #a8b9c7,
+    0 10px 14px -6px rgba(35, 62, 53, 0.5);
+}
+.step.summit::before {
+  content: '';
+  position: absolute;
+  inset: -7px 18% auto;
+  height: 12px;
+  border-radius: 999px 999px 6px 6px;
+  background: linear-gradient(180deg, #fff, #e3edf3);
+  box-shadow: 0 2px 3px rgba(35, 62, 53, 0.2);
+  pointer-events: none;
+}
+.foot {
+  border-radius: 999px;
+  background: radial-gradient(60% 70% at 50% 40%, hsl(var(--hue) 25% 62% / 0.35), transparent 70%);
+}
+
+/* Goats are shaded tokens standing on the ledge. */
+.goat {
+  position: relative;
+  border: none;
+  background:
+    radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.6), transparent 42%),
+    var(--goat, #888);
+  box-shadow:
+    inset 0 -3px 0 rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 2px 0 rgba(0, 0, 0, 0.2),
+    0 7px 6px -3px rgba(20, 35, 28, 0.45);
+}
+
+/* Dice with depth; a fresh roll tumbles in. */
+.expedition .network-die {
+  background: linear-gradient(180deg, #fbfbf4, #e9e9dc);
+  box-shadow: inset 0 1px 0 #fff, 0 5px 0 #b9c3b0, 0 9px 14px -6px rgba(35, 62, 53, 0.45);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.expedition .network-die:not(:disabled):active {
+  transform: translateY(4px);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 0 #b9c3b0, 0 3px 6px -3px rgba(35, 62, 53, 0.45);
+}
+.expedition .network-die.chosen {
+  background: linear-gradient(180deg, #34705a, var(--green));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 5px 0 #0f2e21, 0 9px 14px -6px rgba(16, 46, 33, 0.6);
+}
+.network-die-face {
+  display: block;
+  animation: die-tumble 0.55s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+@keyframes die-tumble {
+  0% { transform: translateY(-14px) rotate(-200deg) scale(0.6); opacity: 0; }
+  60% { transform: translateY(2px) rotate(12deg) scale(1.08); opacity: 1; }
+  100% { transform: none; }
+}
+
+/* Tilt the whole board into the scene on wider screens. */
+@media (min-width: 761px) {
+  .board-scroll {
+    perspective: 1400px;
+    perspective-origin: 50% 0%;
+  }
+  .network-board {
+    transform: rotateX(14deg);
+    transform-origin: 50% 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .network-die-face { animation: none; }
+  .network-board { transform: none; }
+}

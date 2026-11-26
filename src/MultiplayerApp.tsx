@@ -1,5 +1,5 @@
 /* biome-ignore-all lint/suspicious/noArrayIndexKey: Seats, dice and board cells are fixed ordered slots. */
-import { useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import App from './App';
 import AccountPanel from './components/AccountPanel';
 import PublicRooms from './components/PublicRooms';
@@ -8,6 +8,7 @@ import type { CellNumber, GameState, PlayerColor } from './models';
 import type { Action, Expansions } from './multiplayer';
 import { request, type ServerConfig, type User } from './platform/api';
 import { useRoom } from './platform/useRoom';
+import { useGoatHops } from './useGoatHops';
 import './MultiplayerApp.css';
 
 const key = 'mountain-goats-seat-v1';
@@ -91,6 +92,8 @@ export default function MultiplayerApp() {
   const engine = useMemo(() => (game ? GameEngine.fromState(game) : null), [game]);
   const bonusPoints = useMemo(() => engine?.expansionScores() ?? [], [engine]);
   const myTurn = !!game && !game.gameOver && game.currentPlayerIndex === room?.you;
+  const board = useRef<HTMLElement>(null);
+  useGoatHops(board, room ? `${room.code}:${room.revision}` : null);
   useEffect(() => {
     // Tell a player in another tab or app that the game is waiting on them.
     if (offline || !myTurn) return;
@@ -171,14 +174,17 @@ export default function MultiplayerApp() {
     );
     initials[p.color] = shared ? p.name.trim().slice(0, 2).toUpperCase() : first;
   }
-  function goat(color: PlayerColor, id: string) {
+  /** `place` (e.g. `red@7`) stays the same while a goat climbs one mountain, so it can hop. */
+  function goat(color: PlayerColor, id: string, place?: string, step?: string) {
     const player = game?.players.find((p) => p.color === color);
     return (
       <span
         key={id}
         role="img"
         className="goat"
-        style={{ background: colors[color] }}
+        data-goat={place}
+        data-step={step}
+        style={{ '--goat': colors[color] } as CSSProperties}
         title={player?.name}
         aria-label={player?.name}
       >
@@ -576,7 +582,13 @@ export default function MultiplayerApp() {
                         disabled={!canAct || die.used}
                         onClick={() => void action({ type: 'select', index: i })}
                       >
-                        {die.value}
+                        {/* A new roll or changed value re-mounts the face, replaying its tumble. */}
+                        <span
+                          key={`${game.currentTurn}-${game.currentPlayerIndex}-${die.value}`}
+                          className="network-die-face"
+                        >
+                          {die.value}
+                        </span>
                         <small>{die.used ? 'used' : die.selected ? 'selected' : 'select'}</small>
                       </button>
                       {die.canChange && !die.used && (
@@ -657,7 +669,7 @@ export default function MultiplayerApp() {
             </section>
           )}
           <div className="board-scroll">
-            <section className="network-board" aria-label="Six mountains">
+            <section className="network-board" aria-label="Six mountains" ref={board}>
               {[5, 6, 7, 8, 9, 10].map((m) => (
                 <article key={m} className={`peak peak-${m}`}>
                   <header>
@@ -677,12 +689,12 @@ export default function MultiplayerApp() {
                         <small>
                           {cell.isTop ? 'SUMMIT' : `↑ ${game.cells[m as CellNumber].length - i}`}
                         </small>
-                        <div>{cell.occupiedBy.map((c, j) => goat(c, `${c}-${j}`))}</div>
+                        <div>{cell.occupiedBy.map((c) => goat(c, c, `${c}@${m}`, String(i)))}</div>
                       </div>
                     ))}
                   </div>
                   <div className="foot">
-                    {game.playerPieces[m as CellNumber].map((c, j) => goat(c, `${c}-${j}`))}
+                    {game.playerPieces[m as CellNumber].map((c) => goat(c, c, `${c}@${m}`, 'foot'))}
                   </div>
                   <button
                     type="button"
