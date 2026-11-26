@@ -13,6 +13,8 @@ export default function PublicRooms({ onJoin }: { onJoin: (code: string) => void
   useEffect(() => {
     let active = true;
     async function refresh() {
+      // Background tabs do not need a fresh list; it refreshes when shown again.
+      if (document.hidden) return;
       try {
         const response = await fetch('/api/rooms', { signal: AbortSignal.timeout(10000) });
         if (!response.ok)
@@ -30,9 +32,11 @@ export default function PublicRooms({ onJoin }: { onJoin: (code: string) => void
     }
     void refresh();
     const timer = setInterval(refresh, 5000);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
       active = false;
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, []);
   return (
@@ -62,7 +66,12 @@ export default function PublicRooms({ onJoin }: { onJoin: (code: string) => void
                 type="button"
                 onClick={() => {
                   onJoin(room.code);
-                  document.querySelector('form')?.scrollIntoView?.({ behavior: 'smooth' });
+                  // Take the player straight to the name field they still need to fill.
+                  const field = document.querySelector<HTMLInputElement>(
+                    'input[autocomplete="nickname"]'
+                  );
+                  field?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+                  field?.focus({ preventScroll: true });
                 }}
               >
                 Choose room {room.code}

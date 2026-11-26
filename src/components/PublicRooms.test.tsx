@@ -6,19 +6,17 @@ afterEach(() => vi.unstubAllGlobals());
 it('shows open guest rooms and chooses the invitation code', async () => {
   vi.stubGlobal(
     'fetch',
-    vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => [
-          {
-            code: 'ABC123',
-            players: 1,
-            capacity: 4,
-            expansions: { bigMountain: true, greenValley: false },
-          },
-        ],
-      })
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          code: 'ABC123',
+          players: 1,
+          capacity: 4,
+          expansions: { bigMountain: true, greenValley: false },
+        },
+      ],
+    })
   );
   const join = vi.fn();
   render(<PublicRooms onJoin={join} />);
