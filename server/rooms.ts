@@ -1,3 +1,6 @@
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { GameEngine } from '../src/game';
 import type { Action, RoomView } from '../src/multiplayer';
@@ -23,6 +26,33 @@ export function nameOf(value: unknown): string {
 }
 export class Rooms {
   rooms = new Map<string, Room>();
+  database?: DatabaseSync;
+  constructor(databasePath?: string) {
+    if (!databasePath) return;
+    mkdirSync(dirname(databasePath), { recursive: true });
+    this.database = new DatabaseSync(databasePath);
+    this.database.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, data TEXT NOT NULL)');
+    for (const row of this.database.prepare('SELECT code, data FROM rooms').all()) {
+      // One unreadable row must not stop the server from booting.
+      try {
+        const saved = JSON.parse(String(row.data));
+        saved.game = saved.game ? GameEngine.deserialize(JSON.stringify(saved.game)) : null;
+        this.rooms.set(saved.code, saved);
+      } catch { console.warn(`Skipping unreadable room ${String(row.code)}.`); }
+    }
+    this.prune();
+  }
+  private save(room: Room): void {
+    if (!this.database) return;
+    const data = JSON.stringify({ ...room, game: room.game?.state || null });
+    this.database.prepare('INSERT INTO rooms (code, data) VALUES (?, ?) ON CONFLICT(code) DO UPDATE SET data=excluded.data').run(room.code, data);
+  }
+  private commit(room: Room, next: Room): void {
+    // Commit durable state first. A failed disk write leaves the live room unchanged.
+    this.save(next); Object.assign(room, next);
+  }
+  close(): void { this.database?.close(); }
+
   create(input: Record<string, unknown>): { room: Room; token: string } {
     this.prune();
     if (this.rooms.size >= 500) throw new RoomError('Room limit reached. Try again later.', 503);
@@ -35,11 +65,12 @@ export class Rooms {
     const room: Room = { code, revision: 0, seats: [{ name, token }], capacity: Number(capacity), expansions: {
       bigMountain: input.bigMountain === true, greenValley: input.greenValley === true,
     }, game: null, touched: Date.now() };
+    this.save(room);
     this.rooms.set(code, room);
     return { room, token };
   }
   prune(): void {
-    for (const [code, room] of this.rooms) if (Date.now() - room.touched > 24 * 60 * 60 * 1000) this.rooms.delete(code);
+    for (const [code, room] of this.rooms) if (Date.now() - room.touched > 24 * 60 * 60 * 1000) { this.database?.prepare('DELETE FROM rooms WHERE code = ?').run(code); this.rooms.delete(code); }
   }
   get(code: string): Room {
     this.prune();
@@ -51,7 +82,7 @@ export class Rooms {
     if (room.game) throw new RoomError('This game has already started.', 409);
     if (room.seats.length >= room.capacity) throw new RoomError('This room is full.', 409);
     const token = secret();
-    room.seats.push({ name: nameOf(name), token }); room.revision++; room.touched = Date.now();
+    this.commit(room, { ...room, seats: [...room.seats, { name: nameOf(name), token }], revision: room.revision + 1, touched: Date.now() });
     return token;
   }
   seat(room: Room, token: string): number {
@@ -67,18 +98,12 @@ export class Rooms {
     if (this.seat(room, token) !== 0) throw new RoomError('Only the host can start.', 403);
     this.revision(room, revision);
     if (room.game || room.seats.length < 2) throw new RoomError('At least two players must join before starting.', 409);
-    room.game = new GameEngine(room.seats.length, 10, 10, room.seats.map(s => s.name));
-    room.game.configureExpansions(room.expansions); this.roll(room.game);
-    room.revision++; room.touched = Date.now();
+    const game = new GameEngine(room.seats.length, 10, 10, room.seats.map(s => s.name));
+    game.configureExpansions(room.expansions); game.rollDice(() => randomInt(1, 7));
+    this.commit(room, { ...room, game, revision: room.revision + 1, touched: Date.now() });
   }
   revision(room: Room, revision: unknown): void {
     if (revision !== room.revision) throw new RoomError('The room changed. Try your action again.', 409);
-  }
-  roll(engine: GameEngine): void {
-    // Generate host-owned dice with the platform cryptographic RNG.
-    for (const die of engine.state.dice) { die.value = randomInt(1, 7); die.locked = false; die.used = false; die.selected = false; die.canChange = false; }
-    let first = true;
-    for (const die of engine.state.dice) if (die.value === 1) { die.canChange = !first; first = false; }
   }
   act(room: Room, token: string, revision: unknown, raw: unknown): void {
     const seat = this.seat(room, token); this.revision(room, revision);
@@ -103,12 +128,12 @@ export class Rooms {
       case 'move': ok = Number.isInteger(a.mountain) && a.mountain >= 5 && a.mountain <= 10 && engine.moveGoatUpMountain(a.mountain as CellNumber); break;
       case 'big': ok = typeof a.source === 'string' && engine.moveToBigMountain(a.target, a.source); break;
       case 'redeploy': ok = typeof a.source === 'string' && engine.redeployGoat(a.source, a.mountain as CellNumber); break;
-      case 'end': engine.nextTurn(); if (!engine.state.gameOver) this.roll(engine); break;
+      case 'end': engine.nextTurn(() => randomInt(1, 7)); break;
       default: ok = false;
     }
     if (!ok) throw new RoomError('That action is not available.');
     // Keep network snapshots bounded during long-running games.
     engine.state.gameLog = engine.state.gameLog.slice(-200);
-    room.game = engine; room.revision++; room.touched = Date.now();
+    this.commit(room, { ...room, game: engine, revision: room.revision + 1, touched: Date.now() });
   }
 }

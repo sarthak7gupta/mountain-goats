@@ -165,7 +165,7 @@ export class GameEngine {
     }
   }
 
-  rollDice(): void {
+  rollDice(rollFace: () => number = () => Math.floor(Math.random() * 6) + 1): void {
     // Don't roll dice if game is over
     if (this.state.gameOver) {
       return;
@@ -179,7 +179,7 @@ export class GameEngine {
     // Roll unlocked dice
     for (const die of this.state.dice) {
       if (!die.locked) {
-        die.value = Math.floor(Math.random() * 6) + 1;
+        die.value = rollFace();
       }
     }
 
@@ -609,7 +609,7 @@ export class GameEngine {
     return winner ? [winner] : playersWithMostGoats;
   }
 
-  nextTurn(): void {
+  nextTurn(rollFace?: () => number): void {
     if (this.state.gameOver) return;
     if (this.checkGameEndConditions()) this.state.gameEndTriggered = true;
     // Clear all selections and reset used dice
@@ -653,7 +653,7 @@ export class GameEngine {
       `${this.getCurrentPlayer().name} ${i18n.t('startedTurn')} ${this.state.currentTurn}`
     );
     // Auto-roll dice for new turn
-    this.rollDice();
+    this.rollDice(rollFace);
   }
 
   configureExpansions(options: { bigMountain: boolean; greenValley: boolean }): void {

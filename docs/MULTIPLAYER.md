@@ -29,3 +29,13 @@ The host caps rooms at 500, incoming bodies at 8 KiB, and mutations at 240 per I
 `pnpm test` covers the existing game and components, expansion scoring and goat conservation, equal-turn ending, host authority, capacity, revisions, invalid commands, hidden credentials, and real HTTP clients (including concurrent requests, origin rejection and reconnect). `pnpm build` type-checks both client and server and builds the frontend.
 
 Run `pnpm exec playwright install chromium` once, then `pnpm build` and `pnpm host` in one terminal and `node tests/browser.mjs` in another. This checks independent desktop/mobile browser contexts, invitations, expansion selection, host start, turn controls, synchronization, refresh/rejoin, console errors, and mobile overflow. `PLAYWRIGHT_MODULE` can point to a preinstalled Playwright module.
+
+## v2 — Private rooms on a backend
+
+Deploy the included Dockerfile to one Node/Docker service, expose port 3000 behind HTTPS, and attach a persistent volume at `/data`. Set `PUBLIC_ORIGIN=https://your-game.example` to the exact origin users open. Both frontend and API are served from that origin; no CORS or separate LAN address is needed. The existing static frontend still provides the LAN entry; online invitations must point to the backend deployment origin. No credentials or database subscription are required.
+
+For a local backend check: `PUBLIC_ORIGIN=http://localhost:3000 pnpm start`. `DATABASE_PATH` defaults to `.data/rooms.sqlite` locally. Node 22.13+ is required for native SQLite. A deployment must use **one process / one replica**; room authority is in memory with SQLite persistence, so multiple processes would violate concurrency invariants. Do not use ephemeral storage for an online deployment.
+
+Every accepted room mutation is saved atomically to SQLite before being acknowledged or applied to live state. WAL mode supports safe crash recovery. Rooms, seats, invite codes, game state and revisions survive a restart. Disk-write failures leave live state unchanged and return an error. Startup fails rather than silently discarding an unreadable database. Rooms still expire after 24 hours inactive. Stop the server before copying the database plus its WAL files, or use SQLite's backup facility; keep backups private because seat credentials grant control.
+
+Build: `docker build -t mountain-goats .`; run with a mounted persistent volume, `MODE=online`, `PUBLIC_ORIGIN` and `DATABASE_PATH`. Provisioning a hosted service and DNS is a separate deployment action; this PR adds the deployable backend rather than selecting a paid host automatically.

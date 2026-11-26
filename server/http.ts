@@ -16,6 +16,10 @@ export function lanAddresses(port: number): string[] {
   return Object.values(networkInterfaces()).flatMap(list => list || [])
     .filter(a => a.family === 'IPv4' && !a.internal).map(a => `http://${a.address}:${port}`);
 }
+/** PUBLIC_ORIGIN as a browser sends it in the Origin header (no path or trailing slash). */
+function publicOrigin(): string | undefined {
+  return process.env.PUBLIC_ORIGIN ? new URL(process.env.PUBLIC_ORIGIN).origin : undefined;
+}
 function json(res: ServerResponse, status: number, value: unknown): void {
   res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value));
 }
@@ -30,7 +34,7 @@ export function app(rooms = new Rooms()) {
         if (req.method === 'POST') {
           // Same-origin API only. A deployed landing page navigates to the LAN URL.
           const origin = req.headers.origin;
-          if (origin && origin !== `${'http'}://${req.headers.host}`) throw new RoomError('Open the game at the host address.', 403);
+          if (origin && origin !== publicOrigin() && origin !== `http://${req.headers.host}`) throw new RoomError('Open the game at the host address.', 403);
           const key = req.socket.remoteAddress || 'unknown';
           const now = Date.now();
           if (limits.size > 1000) for (const [k,v] of limits) if (v.until < now) limits.delete(k);
@@ -38,7 +42,7 @@ export function app(rooms = new Rooms()) {
           if (!limit || limit.until < now) limits.set(key, { count: 1, until: now + 60000 });
           else if (++limit.count > 240) throw new RoomError('Too many requests. Wait a minute.', 429);
         }
-        if (url.pathname === '/api/config' && req.method === 'GET') return json(res, 200, { mode: 'lan', lanUrls: lanAddresses(req.socket.localPort || 0) });
+        if (url.pathname === '/api/config' && req.method === 'GET') return json(res, 200, process.env.MODE === 'online' ? { mode: 'online' } : { mode: 'lan', lanUrls: lanAddresses(req.socket.localPort || 0) });
         if (url.pathname === '/api/rooms' && req.method === 'POST') {
           const input = await body(req); const { room, token } = rooms.create(input);
           return json(res, 201, { token, room: rooms.view(room, token) });
@@ -72,9 +76,16 @@ export function app(rooms = new Rooms()) {
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 3000);
-  app().listen(port, '0.0.0.0', () => {
+  const online = process.env.MODE === 'online';
+  if (online && !process.env.PUBLIC_ORIGIN) throw new Error('Set PUBLIC_ORIGIN to the HTTPS deployment origin.');
+  publicOrigin(); // Fail at startup, not per request, on a malformed PUBLIC_ORIGIN.
+  const rooms = new Rooms(online ? process.env.DATABASE_PATH || '.data/rooms.sqlite' : undefined);
+  const server = app(rooms);
+  server.listen(port, '0.0.0.0', () => {
     console.log(`Mountain Goats: http://localhost:${port}`);
     for (const address of lanAddresses(port)) console.log(`Join on this Wi-Fi: ${address}`);
-    console.log('Keep this host running. Rooms last until the host stops (maximum 24 hours inactive).');
+    console.log(online ? 'Online private rooms; durable SQLite storage enabled.' : 'Keep this host running. Rooms last until the host stops (maximum 24 hours inactive).');
   });
+  const shutdown = () => { server.close(() => { rooms.close(); process.exit(0); }); };
+  process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
 }
