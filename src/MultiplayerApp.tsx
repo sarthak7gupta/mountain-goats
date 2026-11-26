@@ -40,7 +40,10 @@ export default function MultiplayerApp() {
   const [session, setSession] = useState<Session | null>(saved);
   const [room, setRoom] = useState<RoomView | null>(null);
   const [name, setName] = useState('');
-  const [code, setCode] = useState(new URLSearchParams(location.search).get('room') || '');
+  const [invited] = useState(
+    () => new URLSearchParams(location.search).get('room')?.toUpperCase() || ''
+  );
+  const [code, setCode] = useState(invited);
   const [capacity, setCapacity] = useState(4);
   const [publicRoom, setPublicRoom] = useState(false);
   const [bigMountain, setBig] = useState(false);
@@ -88,6 +91,17 @@ export default function MultiplayerApp() {
       .catch(() => setAvailable(false))
       .finally(() => setConfigured(true));
   }, []);
+  const myTurn = !!room?.game && !room.game.gameOver && room.game.currentPlayerIndex === room.you;
+  useEffect(() => {
+    // Tell a player in another tab or app that the game is waiting on them.
+    if (offline || !myTurn) return;
+    const previous = document.title;
+    document.title = 'Your move · Mountain Goats';
+    navigator.vibrate?.(120);
+    return () => {
+      document.title = previous;
+    };
+  }, [myTurn, offline]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(''), 4000);
@@ -244,9 +258,11 @@ export default function MultiplayerApp() {
   if (offline)
     return (
       <>
-        <button className="return-online" onClick={() => setOffline(false)} type="button">
-          ← Multiplayer
-        </button>
+        <nav className="return-online" aria-label="Game mode">
+          <button onClick={() => setOffline(false)} type="button">
+            ← Back to multiplayer
+          </button>
+        </nav>
         <App resume />
       </>
     );
@@ -269,6 +285,15 @@ export default function MultiplayerApp() {
   const inviteOrigin =
     loopback.test(location.hostname) && lanUrls[0] ? lanUrls[0] : location.origin;
   const invite = room ? `${inviteOrigin}${location.pathname}?room=${room.code}` : '';
+  // One letter per goat, two when players share a first letter.
+  const initials: Partial<Record<PlayerColor, string>> = {};
+  for (const p of game?.players || []) {
+    const first = p.name.trim().slice(0, 1).toUpperCase();
+    const shared = game?.players.some(
+      (o) => o !== p && o.name.trim().slice(0, 1).toUpperCase() === first
+    );
+    initials[p.color] = shared ? p.name.trim().slice(0, 2).toUpperCase() : first;
+  }
   function goat(color: PlayerColor, id: string) {
     const player = game?.players.find((p) => p.color === color);
     return (
@@ -280,7 +305,7 @@ export default function MultiplayerApp() {
         title={player?.name}
         aria-label={player?.name}
       >
-        {(player?.name || color).slice(0, 1).toUpperCase()}
+        {initials[color] || color.slice(0, 1).toUpperCase()}
       </span>
     );
   }
@@ -350,7 +375,8 @@ export default function MultiplayerApp() {
             {login && !user && accountPanel}
             <section className="panel">
               <p className="eyebrow">BASE CAMP</p>
-              <h2>Gather your crew</h2>
+              <h2>{invited ? `Join room ${invited}` : 'Gather your crew'}</h2>
+              {invited && <p>You were invited to an expedition. Pick a name and join.</p>}
               {available && serverMode === 'online' && (
                 <p>Play from anywhere. Create a private room and share its invite link.</p>
               )}
@@ -508,23 +534,45 @@ export default function MultiplayerApp() {
             Join link
             <input readOnly value={invite} onFocus={(e) => e.target.select()} />
           </label>
-          <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard
-                ?.writeText(invite)
-                .then(() => setNotice('Invite link copied.'))
-                .catch(() => setNotice('Select and copy the invite link above.'));
-            }}
-          >
-            Copy invite link
-          </button>
+          <div className="invite-actions">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard
+                  ?.writeText(invite)
+                  .then(() => setNotice('Invite link copied.'))
+                  .catch(() => setNotice('Select and copy the invite link above.'));
+              }}
+            >
+              Copy invite link
+            </button>
+            {typeof navigator.share === 'function' && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  void navigator
+                    .share({ title: 'Join my Mountain Goats room', url: invite })
+                    .catch(() => {})
+                }
+              >
+                Share…
+              </button>
+            )}
+          </div>
           <ol className="seat-list">
-            {room.seats.map((seat, i) => (
-              <li key={i}>
-                {seat.name} {i === room.you && '(you)'} {i === 0 && '· host'}
-              </li>
-            ))}
+            {Array.from({ length: room.capacity }, (_, i) => {
+              const seat = room.seats[i];
+              return seat ? (
+                <li key={i}>
+                  {seat.name} {i === room.you && '(you)'} {i === 0 && '· host'}
+                </li>
+              ) : (
+                <li key={i} className="open-seat">
+                  Open seat — waiting for a player
+                </li>
+              );
+            })}
           </ol>
           <p>
             {room.seats.length}/{room.capacity} seats ·{' '}
@@ -623,6 +671,29 @@ export default function MultiplayerApp() {
               </div>
             ))}
           </section>
+          {game.gameOver && (
+            <section className="panel results" aria-label="Final results">
+              <h2>Final standings</h2>
+              <ol>
+                {game.players
+                  .map((player, i) => ({ player, i }))
+                  .sort((a, b) => b.player.score - a.player.score)
+                  .map(({ player, i }) => (
+                    <li key={player.color}>
+                      {goat(player.color, `result-${player.color}`)}
+                      <span>
+                        {player.name}
+                        {i === room.you && ' · you'}
+                      </span>
+                      <strong>{player.score} points</strong>
+                    </li>
+                  ))}
+              </ol>
+              <button type="button" onClick={() => forget()}>
+                Back to base camp
+              </button>
+            </section>
+          )}
           {!game.gameOver && (
             <section className="turn-panel panel" aria-label="Your turn controls">
               <fieldset disabled={!canAct}>
@@ -870,7 +941,7 @@ export default function MultiplayerApp() {
           )}
           <details className="panel">
             <summary>Trail journal · last {Math.min(20, game.gameLog.length)} events</summary>
-            <ol>
+            <ul className="journal">
               {game.gameLog
                 .slice(-20)
                 .reverse()
@@ -879,7 +950,7 @@ export default function MultiplayerApp() {
                     Round {entry.turn} · {entry.action}
                   </li>
                 ))}
-            </ol>
+            </ul>
           </details>
         </main>
       )}

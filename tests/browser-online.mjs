@@ -38,7 +38,7 @@ try {
     throw new Error('Anonymous visitor can create a room');
   await host.getByRole('button', { name: 'Pass & play' }).click();
   await host.getByRole('heading', { name: 'Player Setup' }).waitFor();
-  await host.getByRole('button', { name: '← Multiplayer' }).click();
+  await host.getByRole('button', { name: '← Back to multiplayer' }).click();
 
   await signUp(host, hostName);
   await host.getByLabel('Your name').fill('Alpine host');

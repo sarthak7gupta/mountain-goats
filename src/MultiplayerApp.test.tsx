@@ -118,6 +118,6 @@ it('allows switching to local pass-and-play and back without signing in', async 
   await screen.findByRole('heading', { name: 'Sign in' });
   fireEvent.click(screen.getByRole('button', { name: /Play pass-and-play on this device/ }));
   expect(await screen.findByRole('heading', { name: 'Player Setup' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '← Multiplayer' }));
+  fireEvent.click(screen.getByRole('button', { name: '← Back to multiplayer' }));
   expect(await screen.findByRole('heading', { name: 'Gather your crew' })).toBeInTheDocument();
 });
