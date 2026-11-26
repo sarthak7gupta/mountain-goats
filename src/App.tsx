@@ -84,7 +84,8 @@ function App({ resume = false }: { resume?: boolean } = {}) {
   const [language, setLanguage] = useState<string>('en');
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
 
-  const forceUpdate = () => setUpdateTrigger((v) => v + 1);
+  // Stable identity, so callbacks and the keyboard listener are not rebuilt on every render.
+  const forceUpdate = useCallback(() => setUpdateTrigger((v) => v + 1), []);
 
   // Load preferences from localStorage on mount
   useEffect(() => {
@@ -111,6 +112,7 @@ function App({ resume = false }: { resume?: boolean } = {}) {
   }, [language, soundMuted]);
 
   // Load game state from localStorage on mount
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Runs once on mount; `resume` only matters then.
   useEffect(() => {
     const now = Date.now();
     const lastSessionTime = sessionStorage.getItem(SESSION_FLAG);
@@ -159,10 +161,10 @@ function App({ resume = false }: { resume?: boolean } = {}) {
     return () => {
       clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+  }, []);
 
   // Sync preferences from gameEngine to standalone state
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The engine mutates in place; updateTrigger marks each change.
   useEffect(() => {
     if (gameEngine) {
       if (gameEngine.state.language && gameEngine.state.language !== language) {
@@ -178,6 +180,7 @@ function App({ resume = false }: { resume?: boolean } = {}) {
   // Save game state to localStorage whenever it changes
   // Use a ref to track the last saved state to avoid unnecessary saves
   const lastSavedStateRef = useRef<string>('');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: The engine mutates in place; updateTrigger marks each change.
   useEffect(() => {
     if (gameEngine) {
       try {

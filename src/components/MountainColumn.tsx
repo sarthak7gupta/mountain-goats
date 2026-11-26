@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import type React from 'react';
 import { GameEngine } from '../game';
 import { i18n } from '../i18n';
 import { CellNumber, PlayerColor } from '../models';
@@ -8,51 +8,23 @@ interface MountainColumnProps {
   gameEngine: GameEngine;
   cellNumber: CellNumber;
   forceUpdate?: () => void;
+  /** Changes after every engine mutation so the column re-renders. */
   updateTrigger?: number;
 }
 
-const MountainColumn: React.FC<MountainColumnProps> = ({
-  gameEngine,
-  cellNumber,
-  forceUpdate,
-  updateTrigger,
-}) => {
-  // Use useMemo to optimize derived state calculations
-  // Include updateTrigger in dependencies so component re-renders when state changes
-  const state = useMemo(() => gameEngine.state, [gameEngine, updateTrigger]);
-  const cells = useMemo(() => state.cells[cellNumber], [state, cellNumber]);
-  const currentPlayer = useMemo(() => gameEngine.getCurrentPlayer(), [gameEngine, updateTrigger]);
-  const validTargets = useMemo(
-    () => gameEngine.getValidMountainTargets(),
-    [gameEngine, updateTrigger]
-  );
-  const isValidTarget = useMemo(
-    () => validTargets.includes(cellNumber),
-    [validTargets, cellNumber]
-  );
-  const selectedSum = useMemo(() => gameEngine.getSelectedDiceSum(), [gameEngine, updateTrigger]);
-
-  // Get point tokens for this column
-  const pointTokens = useMemo(
-    () => state.pointTokens.filter((t) => t.available && t.value === cellNumber),
-    [state.pointTokens, cellNumber, updateTrigger]
-  );
-  const tokenCount = useMemo(() => pointTokens.length, [pointTokens]);
-
-  // Get player pieces at foot of this column
-  const pieces = useMemo(
-    () => state.playerPieces[cellNumber] || [],
-    [state.playerPieces, cellNumber, updateTrigger]
-  );
-
-  // Find if current player has a goat on this mountain (in cells or at foot)
-  const hasPlayerGoat = useMemo(() => {
-    // Check if player has piece in cells
-    const hasInCells = cells.some((cell) => cell.occupiedBy.includes(currentPlayer.color));
-    // Check if player has piece at foot
-    const hasAtFoot = pieces.includes(currentPlayer.color);
-    return hasInCells || hasAtFoot;
-  }, [cells, pieces, currentPlayer]);
+const MountainColumn: React.FC<MountainColumnProps> = ({ gameEngine, cellNumber, forceUpdate }) => {
+  // The engine mutates its state in place; the parent re-renders this column after every
+  // change, so read current values directly instead of memoizing on object identity.
+  const state = gameEngine.state;
+  const cells = state.cells[cellNumber];
+  const currentPlayer = gameEngine.getCurrentPlayer();
+  const isValidTarget = gameEngine.getValidMountainTargets().includes(cellNumber);
+  const selectedSum = gameEngine.getSelectedDiceSum();
+  const tokenCount = state.pointTokens.filter((t) => t.available && t.value === cellNumber).length;
+  const pieces = state.playerPieces[cellNumber] || [];
+  const hasPlayerGoat =
+    pieces.includes(currentPlayer.color) ||
+    cells.some((cell) => cell.occupiedBy.includes(currentPlayer.color));
 
   const handleGoatClick = () => {
     if (isValidTarget && selectedSum > 0) {
@@ -118,7 +90,7 @@ const MountainColumn: React.FC<MountainColumnProps> = ({
             x{tokenCount}
           </div>
           {isValidTarget && selectedSum > 0 && (
-            <div className="valid-target-indicator" aria-label={i18n.t('validTarget')}>
+            <div className="valid-target-indicator" aria-hidden="true">
               ✓
             </div>
           )}
@@ -126,16 +98,16 @@ const MountainColumn: React.FC<MountainColumnProps> = ({
       </div>
 
       {/* Mountain cards */}
-      <div className="mountain-cards">
+      <ol className="mountain-cards">
         {cells.map((cell, index) => {
           // Level number: top cell (index 0) is level 1, next is level 2, etc.
           const levelNumber = index + 1;
 
           return (
-            <div
+            <li
+              // biome-ignore lint/suspicious/noArrayIndexKey: Cells are fixed slots on the mountain.
               key={index}
               className={`mountain-card ${getMountainBackground(cellNumber)} ${cell.isTop ? 'card-top' : ''} ${cell.occupiedBy.length > 0 ? `occupied` : ''}`}
-              role="gridcell"
               aria-label={`${i18n.t('ariaMountain')} ${cellNumber}, level ${levelNumber}${cell.occupiedBy.length > 0 ? `, ${i18n.t('occupiedBy')} ${cell.occupiedBy.join(', ')}` : ''}`}
             >
               <div className="card-number-circle" aria-hidden="true">
@@ -143,29 +115,29 @@ const MountainColumn: React.FC<MountainColumnProps> = ({
               </div>
               {cell.occupiedBy.length > 0 && (
                 <div className="player-markers-container">
-                  {cell.occupiedBy.map((playerColor, markerIdx) => {
+                  {cell.occupiedBy.map((playerColor) => {
                     const isCurrentPlayer = playerColor === currentPlayer.color;
                     const canMove = isCurrentPlayer && isValidTarget && selectedSum > 0;
-                    return (
-                      <div
-                        key={markerIdx}
-                        className={`player-marker ${canMove ? 'clickable' : ''} ${isCurrentPlayer ? 'current-player' : ''} ${isCurrentPlayer ? 'current-player-glow' : ''} ${isCurrentPlayer && isValidTarget && selectedSum > 0 ? 'valid-target-glow' : ''}`}
-                        style={{ backgroundColor: getPlayerColor(playerColor) }}
-                        onClick={canMove ? handleGoatClick : undefined}
-                        onKeyDown={(e) => {
-                          if ((e.key === 'Enter' || e.key === ' ') && canMove) {
-                            e.preventDefault();
-                            handleGoatClick();
-                          }
-                        }}
-                        role={canMove ? 'button' : 'img'}
-                        tabIndex={canMove ? 0 : -1}
-                        aria-label={
-                          canMove
-                            ? `${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${currentPlayer.name}, ${i18n.t('clickGoatToMove')} ${cellNumber}`
-                            : `${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${playerColor}`
-                        }
-                        title={canMove ? `${i18n.t('clickGoatToMove')} ${cellNumber}` : ''}
+                    const className = `player-marker ${canMove ? 'clickable valid-target-glow' : ''} ${isCurrentPlayer ? 'current-player current-player-glow' : ''}`;
+                    const style = { backgroundColor: getPlayerColor(playerColor) };
+                    // A player has at most one goat on a mountain, so the colour is a stable key.
+                    return canMove ? (
+                      <button
+                        key={playerColor}
+                        type="button"
+                        className={className}
+                        style={style}
+                        onClick={handleGoatClick}
+                        aria-label={`${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${currentPlayer.name}, ${i18n.t('clickGoatToMove')} ${cellNumber}`}
+                        title={`${i18n.t('clickGoatToMove')} ${cellNumber}`}
+                      />
+                    ) : (
+                      <span
+                        key={playerColor}
+                        className={className}
+                        style={style}
+                        role="img"
+                        aria-label={`${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${playerColor}`}
                       />
                     );
                   })}
@@ -174,57 +146,49 @@ const MountainColumn: React.FC<MountainColumnProps> = ({
               <div className="level-subscript" aria-hidden="true">
                 {levelNumber}
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
       {/* Player pieces (goats) below */}
       <div className="goat-tokens">
-        {pieces.map((color, idx) => {
+        {pieces.map((color) => {
           const isCurrentPlayer = color === currentPlayer.color;
           const canMove = isCurrentPlayer && isValidTarget && selectedSum > 0 && hasPlayerGoat;
-
-          return (
-            <div
-              key={idx}
-              className={`goat-token ${canMove ? 'clickable' : ''} ${isCurrentPlayer ? 'current-player-goat' : ''} ${isCurrentPlayer ? 'current-player-glow' : ''} ${isCurrentPlayer && isValidTarget && selectedSum > 0 ? 'valid-target-glow' : ''}`}
-              style={{
-                backgroundColor: getPlayerColor(color),
-                borderColor: getPlayerColor(color),
-              }}
-              onClick={
-                isCurrentPlayer && isValidTarget && selectedSum > 0 ? handleGoatClick : undefined
-              }
-              onKeyDown={(e) => {
-                if (
-                  (e.key === 'Enter' || e.key === ' ') &&
-                  isCurrentPlayer &&
-                  isValidTarget &&
-                  selectedSum > 0
-                ) {
-                  e.preventDefault();
-                  handleGoatClick();
-                }
-              }}
-              role={canMove ? 'button' : 'img'}
-              tabIndex={canMove ? 0 : -1}
-              aria-label={
-                canMove
-                  ? `${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${currentPlayer.name}, ${i18n.t('clickGoatToMove')} ${cellNumber}`
-                  : `${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${color}`
-              }
-              aria-pressed={canMove ? false : undefined}
+          const className = `goat-token ${canMove ? 'clickable valid-target-glow' : ''} ${isCurrentPlayer ? 'current-player-goat current-player-glow' : ''}`;
+          const style = {
+            backgroundColor: getPlayerColor(color),
+            borderColor: getPlayerColor(color),
+          };
+          // A player has at most one goat at the foot of a mountain, so the colour is a stable key.
+          return canMove ? (
+            <button
+              key={color}
+              type="button"
+              className={className}
+              style={style}
+              onClick={handleGoatClick}
+              aria-label={`${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${currentPlayer.name}, ${i18n.t('clickGoatToMove')} ${cellNumber}`}
+              title={`${i18n.t('clickGoatToMove')} ${cellNumber} (${i18n.t('selectedSum')}: ${selectedSum})`}
+            >
+              🐐
+            </button>
+          ) : (
+            <span
+              key={color}
+              className={className}
+              style={style}
+              role="img"
+              aria-label={`${i18n.t('ariaGoat')} ${i18n.t('ariaPlayer')} ${color}`}
               title={
-                canMove
-                  ? `${i18n.t('clickGoatToMove')} ${cellNumber} (${i18n.t('selectedSum')}: ${selectedSum})`
-                  : isValidTarget && selectedSum > 0 && !hasPlayerGoat
-                    ? `No goat on this mountain`
-                    : ''
+                isValidTarget && selectedSum > 0 && isCurrentPlayer
+                  ? 'No goat on this mountain'
+                  : ''
               }
             >
               🐐
-            </div>
+            </span>
           );
         })}
       </div>

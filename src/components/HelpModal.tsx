@@ -121,8 +121,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           <section className="rule-section">
             <h3>{i18n.t('setup')}</h3>
             <ul>
-              {i18n.getArray('setupItems').map((item, index) => (
-                <li key={index}>{item}</li>
+              {i18n.getArray('setupItems').map((item) => (
+                <li key={item}>{item}</li>
               ))}
             </ul>
           </section>
@@ -130,8 +130,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           <section className="rule-section">
             <h3>{i18n.t('turnStructure')}</h3>
             <ol>
-              {i18n.getArray('turnSteps').map((step, index) => (
-                <li key={index}>{step}</li>
+              {i18n.getArray('turnSteps').map((step) => (
+                <li key={step}>{step}</li>
               ))}
             </ol>
           </section>
@@ -139,8 +139,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           <section className="rule-section">
             <h3>{i18n.t('specialRules')}</h3>
             <ul>
-              {i18n.getArray('specialRulesItems').map((item, index) => (
-                <li key={index}>{item}</li>
+              {i18n.getArray('specialRulesItems').map((item) => (
+                <li key={item}>{item}</li>
               ))}
             </ul>
           </section>
@@ -154,8 +154,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             <h3>{i18n.t('gameEnd')}</h3>
             <p>{i18n.t('gameEndText')}</p>
             <ul>
-              {i18n.getArray('gameEndItems').map((item, index) => (
-                <li key={index}>{item}</li>
+              {i18n.getArray('gameEndItems').map((item) => (
+                <li key={item}>{item}</li>
               ))}
             </ul>
             <p>{i18n.t('gameEndContinue')}</p>
@@ -165,8 +165,8 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             <h3>{i18n.t('winning')}</h3>
             <p>{i18n.t('winningText')}</p>
             <ul>
-              {i18n.getArray('winningTieBreakers').map((item, index) => (
-                <li key={index}>{item}</li>
+              {i18n.getArray('winningTieBreakers').map((item) => (
+                <li key={item}>{item}</li>
               ))}
             </ul>
           </section>

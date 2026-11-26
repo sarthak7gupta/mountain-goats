@@ -145,7 +145,7 @@ const PlayerSidebar: React.FC<PlayerSidebarProps> = ({ gameEngine }) => {
 
         return (
           <article
-            key={index}
+            key={player.color}
             className={`player-card ${isActive ? 'active' : 'inactive'} ${
               animatingPlayers.has(index) ? 'token-claimed' : ''
             }`}
@@ -164,8 +164,8 @@ const PlayerSidebar: React.FC<PlayerSidebarProps> = ({ gameEngine }) => {
                   {state.gameEndTriggered &&
                     (state.turnsSinceEndCondition || 0) === 0 &&
                     state.playersPlayedInLastRound?.includes(index) && (
-                      <span className="last-round-indicator" aria-label="Played last turn">
-                        *
+                      <span className="last-round-indicator" title="Played last turn">
+                        *<span className="sr-only"> (played last turn)</span>
                       </span>
                     )}
                 </div>
@@ -190,8 +190,9 @@ const PlayerSidebar: React.FC<PlayerSidebarProps> = ({ gameEngine }) => {
               <div className="player-bonus-tokens">
                 <div className="bonus-tokens-label">{i18n.t('bonusTokens')}:</div>
                 <div className="bonus-tokens-list">
-                  {bonusTokens.map((value, idx) => (
-                    <div key={idx} className="bonus-token-badge">
+                  {bonusTokens.map((value) => (
+                    // Bonus token values are unique (15, 12, 9, 6, …).
+                    <div key={value} className="bonus-token-badge">
                       {value}
                     </div>
                   ))}

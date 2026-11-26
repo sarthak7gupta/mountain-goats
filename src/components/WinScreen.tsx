@@ -35,8 +35,8 @@ const WinScreen: React.FC<WinScreenProps> = ({ gameEngine, onReset }) => {
         {isTie ? (
           <div className="winners-list">
             <p className="tie-message">{i18n.t('winningText')}</p>
-            {winners.map((winner, index) => (
-              <div key={index} className="winner-card">
+            {winners.map((winner) => (
+              <div key={winner.color} className="winner-card">
                 <div
                   className="winner-color-indicator"
                   style={{ backgroundColor: getPlayerColor(winner.color) }}
@@ -76,11 +76,12 @@ const WinScreen: React.FC<WinScreenProps> = ({ gameEngine, onReset }) => {
             {i18n.t('score')} {i18n.t('playersText')}
           </h2>
           <div className="scores-list">
-            {gameEngine.state.players
+            {/* Sort a copy: sorting state.players in place would reorder the saved game. */}
+            {[...gameEngine.state.players]
               .sort((a, b) => b.score - a.score)
-              .map((player, index) => (
+              .map((player) => (
                 <div
-                  key={index}
+                  key={player.color}
                   className={`score-item ${winners.some((w) => w.name === player.name) ? 'winner' : ''}`}
                 >
                   <div
