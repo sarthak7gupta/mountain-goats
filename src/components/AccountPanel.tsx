@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { type RoomSummary, request, type User } from '../api';
+import { type RoomSummary, request, type User } from '../platform/api';
 
 interface Props {
   user: User | null;

@@ -848,7 +848,11 @@ export class GameEngine {
 
   // Deserialize state from JSON
   static deserialize(json: string): GameEngine {
-    const state = JSON.parse(json) as GameState;
+    return GameEngine.fromState(JSON.parse(json) as GameState);
+  }
+
+  /** Wrap an existing state without copying it; the engine mutates `state` in place. */
+  static fromState(state: GameState): GameEngine {
     const engine = new GameEngine(state.numPlayers, state.gridWidth, state.gridHeight);
     engine.state = state;
     return engine;

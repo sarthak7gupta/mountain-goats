@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { IncomingMessage } from 'node:http';
-import { Accounts } from './accounts';
+import { Accounts } from './platform';
 import { Rooms } from './rooms';
 
 function withCookie(token: string): IncomingMessage {

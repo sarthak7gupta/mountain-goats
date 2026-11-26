@@ -2,7 +2,8 @@ import { createHash, randomBytes, scrypt as derive } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 import type { DatabaseSync } from 'node:sqlite';
 import { promisify } from 'node:util';
-import { RoomError, matches, secret } from './rooms';
+import { RoomError } from './game';
+import { matches, secret } from './rooms';
 const scrypt = promisify(derive);
 const lifetime = 30 * 24 * 60 * 60 * 1000;
 function hash(value: string): string { return createHash('sha256').update(value).digest('hex'); }

@@ -13,7 +13,7 @@ it('shows open guest rooms and chooses the invitation code', async () => {
           code: 'ABC123',
           players: 1,
           capacity: 4,
-          expansions: { bigMountain: true, greenValley: false },
+          options: { bigMountain: true, greenValley: false },
         },
       ],
     })

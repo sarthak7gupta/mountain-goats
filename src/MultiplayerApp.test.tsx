@@ -8,15 +8,18 @@ const lobby = {
   revision: 0,
   seats: [{ name: 'Host' }],
   capacity: 2,
-  expansions: { bigMountain: false, greenValley: false },
-  game: null,
+  options: { bigMountain: false, greenValley: false },
+  state: null,
   you: 0,
 };
 
 type Route = (init?: RequestInit) => { status?: number; body: unknown };
 function stubServer(routes: Record<string, Route>) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-    const path = String(url).replace(/^\/api/, '');
+    // Routes ignore the query string (e.g. the long-poll `?since=`).
+    const path = String(url)
+      .replace(/^\/api/, '')
+      .replace(/\?.*$/, '');
     const route = routes[`${init?.method ?? 'GET'} ${path}`];
     const { status = 200, body } = route
       ? route(init)

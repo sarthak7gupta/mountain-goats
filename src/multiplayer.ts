@@ -1,4 +1,5 @@
 import type { GameState } from './models';
+import type { RoomView as PlatformRoomView } from './platform/protocol';
 
 export type Action =
   | { type: 'select'; index: number }
@@ -8,16 +9,10 @@ export type Action =
   | { type: 'big'; target: number; source: string }
   | { type: 'redeploy'; mountain: number; source: string }
   | { type: 'end' };
-export interface RoomView {
-  code: string;
-  revision: number;
-  seats: { name: string }[];
-  capacity: number;
-  expansions: { bigMountain: boolean; greenValley: boolean };
-  game: GameState | null;
-  you: number;
+export type { Session } from './platform/protocol';
+export interface Expansions {
+  bigMountain: boolean;
+  greenValley: boolean;
 }
-export interface Session {
-  code: string;
-  token: string;
-}
+/** A Mountain Goats room as the server sends it. */
+export type RoomView = PlatformRoomView<GameState, Expansions>;

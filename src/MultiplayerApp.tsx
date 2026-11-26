@@ -1,22 +1,16 @@
 /* biome-ignore-all lint/suspicious/noArrayIndexKey: Seats, dice and board cells are fixed ordered slots. */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import App from './App';
-import { ApiError, request as call, type RoomSummary, type ServerConfig, type User } from './api';
 import AccountPanel from './components/AccountPanel';
 import PublicRooms from './components/PublicRooms';
 import { GameEngine } from './game';
-import type { CellNumber, PlayerColor } from './models';
-import type { Action, RoomView, Session } from './multiplayer';
+import type { CellNumber, GameState, PlayerColor } from './models';
+import type { Action, Expansions } from './multiplayer';
+import { request, type ServerConfig, type User } from './platform/api';
+import { useRoom } from './platform/useRoom';
 import './MultiplayerApp.css';
 
 const key = 'mountain-goats-seat-v1';
-function saved(): Session | null {
-  try {
-    return JSON.parse(localStorage.getItem(key) || 'null');
-  } catch {
-    return null;
-  }
-}
 const colors: Record<PlayerColor, string> = {
   black: '#293a35',
   white: '#ffffff',
@@ -24,9 +18,6 @@ const colors: Record<PlayerColor, string> = {
   yellow: '#e7b746',
   green: '#437b54',
 };
-async function api<T = RoomView>(path: string, token?: string, data?: unknown): Promise<T> {
-  return call<T>(path, token ? { token, data } : { data });
-}
 const loopback = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/;
 /** Describe a goat location id such as `mountain:7`, `big:12` or `valley:0`. */
 export function placeName(location: string, valley: { mountain: number }[] = []): string {
@@ -37,8 +28,6 @@ export function placeName(location: string, valley: { mountain: number }[] = [])
 }
 export default function MultiplayerApp() {
   const [offline, setOffline] = useState(false);
-  const [session, setSession] = useState<Session | null>(saved);
-  const [room, setRoom] = useState<RoomView | null>(null);
   const [name, setName] = useState('');
   const [invited] = useState(
     () => new URLSearchParams(location.search).get('room')?.toUpperCase() || ''
@@ -49,39 +38,45 @@ export default function MultiplayerApp() {
   const [bigMountain, setBig] = useState(false);
   const [greenValley, setValley] = useState(false);
   const [available, setAvailable] = useState(false);
-  // Poll only once the server mode and account are known, so a 401 is read correctly.
+  // Sync only once the server mode and account are known, so a 401 is read correctly.
   const [configured, setConfigured] = useState(false);
   const [serverMode, setServerMode] = useState('lan');
   const [login, setLogin] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [connected, setConnected] = useState(false);
   const [source, setSource] = useState('');
   const [recallTarget, setRecallTarget] = useState(5);
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [notice, setNotice] = useState('');
   const [lanUrls, setLanUrls] = useState<string[]>([]);
-  const pending = useRef(false);
-  const poke = useRef<() => void>(() => {});
-  const account = useRef({ login, user });
-  account.current = { login, user };
-  const adopt = useCallback(
-    (next: RoomView) =>
-      setRoom((old) =>
-        !old || old.code !== next.code || next.revision >= old.revision ? next : old
-      ),
-    []
-  );
+  const {
+    session,
+    room,
+    connected,
+    busy,
+    error,
+    setError,
+    run,
+    forget,
+    create,
+    join,
+    resume,
+    start,
+    act: action,
+  } = useRoom<GameState, Expansions, Action>({
+    storageKey: key,
+    enabled: configured && !offline,
+    account: { login, user },
+    onSignedOut: () => setUser(null),
+  });
   useEffect(() => {
-    call<ServerConfig>('/config')
+    request<ServerConfig>('/config')
       .then((config) => {
         setAvailable(true);
         setServerMode(config.mode);
         setLanUrls(Array.isArray(config.lanUrls) ? config.lanUrls : []);
         setLogin(config.login);
         if (!config.login) return null;
-        return call<User | null>('/auth/me')
+        return request<User | null>('/auth/me')
           .then((account) => {
             setUser(account);
             if (account) setName((old) => old || account.username);
@@ -91,7 +86,11 @@ export default function MultiplayerApp() {
       .catch(() => setAvailable(false))
       .finally(() => setConfigured(true));
   }, []);
-  const myTurn = !!room?.game && !room.game.gameOver && room.game.currentPlayerIndex === room.you;
+  const game = room?.state ?? null;
+  // Parse the engine once per snapshot, not on every render.
+  const engine = useMemo(() => (game ? GameEngine.fromState(game) : null), [game]);
+  const bonusPoints = useMemo(() => engine?.expansionScores() ?? [], [engine]);
+  const myTurn = !!game && !game.gameOver && game.currentPlayerIndex === room?.you;
   useEffect(() => {
     // Tell a player in another tab or app that the game is waiting on them.
     if (offline || !myTurn) return;
@@ -107,130 +106,10 @@ export default function MultiplayerApp() {
     const timer = setTimeout(() => setNotice(''), 4000);
     return () => clearTimeout(timer);
   }, [notice]);
-  const forget = useCallback((message = '') => {
-    localStorage.removeItem(key);
-    setSession(null);
-    setRoom(null);
-    setError(message);
-    history.replaceState(null, '', location.pathname);
-  }, []);
-  useEffect(() => {
-    if (!session || offline || !configured) return;
-    let active = true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let inFlight = false;
-    // One request at a time; the next poll is scheduled only after the last settles.
-    const refresh = async () => {
-      clearTimeout(timer);
-      if (!active || inFlight) return;
-      if (document.hidden) {
-        timer = setTimeout(refresh, 1200);
-        return;
-      }
-      inFlight = true;
-      try {
-        const next = await api(`/rooms/${session.code}`, session.token);
-        if (!active) return;
-        adopt(next);
-        setConnected(true);
-        setError((old) => (old.startsWith('Connection failed') ? '' : old));
-      } catch (e) {
-        if (!active) return;
-        const status = (e as ApiError).status;
-        if (status === 401 && account.current.login) {
-          // Signed out, or the session lapsed: keep the seat and offer sign-in.
-          const current = account.current.user
-            ? await call<User | null>('/auth/me').catch(() => null)
-            : null;
-          if (!active) return;
-          if (!current) {
-            setUser(null);
-            setRoom(null);
-            setConnected(false);
-            if (active) timer = setTimeout(refresh, 1200);
-            return;
-          }
-        }
-        // 404: the room is gone (expired or the host restarted). 401/403: this seat is
-        // unknown here or belongs to another account.
-        if (status === 404 || status === 401 || status === 403) {
-          forget(
-            `${(e as Error).message} Your saved seat was removed from this ${account.current.login ? 'device' : 'browser'}.`
-          );
-          return;
-        }
-        setConnected(false);
-        setError((e as Error).message);
-      } finally {
-        inFlight = false;
-      }
-      if (active) timer = setTimeout(refresh, 1200);
-    };
-    poke.current = () => void refresh();
-    const visible = () => {
-      if (!document.hidden) void refresh();
-    };
-    document.addEventListener('visibilitychange', visible);
-    void refresh();
-    return () => {
-      active = false;
-      clearTimeout(timer);
-      poke.current = () => {};
-      document.removeEventListener('visibilitychange', visible);
-    };
-  }, [session, offline, configured, adopt, forget]);
-  async function request(work: () => Promise<void>) {
-    if (pending.current) return;
-    pending.current = true;
-    setBusy(true);
-    setError('');
-    try {
-      await work();
-    } catch (e) {
-      setError((e as Error).message);
-      // Someone else moved first: fetch the latest room right away.
-      if ((e as ApiError).status === 409) poke.current();
-    } finally {
-      pending.current = false;
-      setBusy(false);
-    }
-  }
-  async function enter(join: boolean) {
-    await request(async () => {
-      const result = await api<{ token: string; room: RoomView }>(
-        join ? `/rooms/${code.trim().toUpperCase()}/join` : '/rooms',
-        undefined,
-        join ? { name } : { name, capacity, bigMountain, greenValley, public: publicRoom }
-      );
-      const seat = { code: result.room.code, token: result.token };
-      localStorage.setItem(key, JSON.stringify(seat));
-      setSession(seat);
-      adopt(result.room);
-      setConnected(true);
-      history.replaceState(null, '', `${location.pathname}?room=${seat.code}`);
-    });
-  }
-  async function resume(summary: RoomSummary) {
-    await request(async () => {
-      const seat = { code: summary.code, token: summary.token };
-      const view = await api(`/rooms/${summary.code}`, seat.token);
-      localStorage.setItem(key, JSON.stringify(seat));
-      setSession(seat);
-      adopt(view);
-      setConnected(true);
-      history.replaceState(null, '', `${location.pathname}?room=${seat.code}`);
-    });
-  }
-  async function action(action: Action) {
-    if (!room || !session) return;
-    await request(async () => {
-      adopt(
-        await api(`/rooms/${session.code}/action`, session.token, {
-          revision: room.revision,
-          action,
-        })
-      );
-    });
+  function enter(joining: boolean) {
+    return joining
+      ? join(code, name)
+      : create({ name, capacity, bigMountain, greenValley, public: publicRoom });
   }
   function signedIn(account: User | null) {
     setUser(account);
@@ -238,8 +117,8 @@ export default function MultiplayerApp() {
     setError('');
   }
   async function signOut() {
-    await request(async () => {
-      await call('/auth/logout', { data: {} });
+    await run(async () => {
+      await request('/auth/logout', { data: {} });
       setUser(null);
       forget();
     });
@@ -270,12 +149,10 @@ export default function MultiplayerApp() {
     <AccountPanel
       user={user}
       onUser={signedIn}
-      onResume={(summary) => void resume(summary)}
+      onResume={(summary) => void resume({ code: summary.code, token: summary.token })}
       onError={setError}
     />
   );
-  const game = room?.game;
-  const engine = game ? GameEngine.deserialize(JSON.stringify(game)) : null;
   const mine = !!game && game.currentPlayerIndex === room?.you && !game.gameOver;
   const canAct = mine && connected && !busy;
   const sum = engine?.getSelectedDiceSum() || 0;
@@ -517,7 +394,7 @@ export default function MultiplayerApp() {
             <AccountPanel
               user={user}
               onUser={signedIn}
-              onResume={(summary) => void resume(summary)}
+              onResume={(summary) => void resume({ code: summary.code, token: summary.token })}
               onError={setError}
             />
           )}
@@ -576,22 +453,14 @@ export default function MultiplayerApp() {
           </ol>
           <p>
             {room.seats.length}/{room.capacity} seats ·{' '}
-            {room.expansions.bigMountain ? 'Big Mountain' : 'Base game'}{' '}
-            {room.expansions.greenValley && '+ Green Valley'}
+            {room.options.bigMountain ? 'Big Mountain' : 'Base game'}{' '}
+            {room.options.greenValley && '+ Green Valley'}
           </p>
           {room.you === 0 ? (
             <button
               type="button"
               disabled={busy || room.seats.length < 2 || !connected}
-              onClick={() =>
-                void request(async () =>
-                  adopt(
-                    await api(`/rooms/${room.code}/start`, session.token, {
-                      revision: room.revision,
-                    })
-                  )
-                )
-              }
+              onClick={() => void start()}
             >
               {room.seats.length < 2
                 ? 'Waiting for another player…'
@@ -663,9 +532,7 @@ export default function MultiplayerApp() {
                   {player.score}
                   <small>
                     points
-                    {!game.gameOver && engine!.expansionScores()[i] > 0
-                      ? ` + ${engine!.expansionScores()[i]} at end`
-                      : ''}
+                    {!game.gameOver && bonusPoints[i] > 0 ? ` + ${bonusPoints[i]} at end` : ''}
                   </small>
                 </strong>
               </div>

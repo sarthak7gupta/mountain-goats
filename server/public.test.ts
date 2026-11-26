@@ -9,7 +9,7 @@ describe('guest public room discovery', () => {
   const started=rooms.create({name:'Started',capacity:3,public:true}); rooms.join(started.room,'Guest'); rooms.start(started.room,started.token,started.room.revision);
   const listing=rooms.publicRooms(); expect(listing).toHaveLength(1); expect(listing[0].code).toBe(open.room.code);
   const data=JSON.stringify(listing); expect(data).not.toContain(privateRoom.room.code); expect(data).not.toContain(open.token); expect(data).not.toContain('Open');
-  expect(listing[0].expansions.bigMountain).toBe(true);
+  expect(listing[0].options.bigMountain).toBe(true);
   rooms.join(open.room,'Anonymous guest'); expect(rooms.publicRooms()[0].players).toBe(2);
  });
  it('cannot bypass capacity with a stale public listing', () => {

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import { app } from './http';
-import { Accounts } from './accounts';
+import { Accounts } from './platform';
 import { Rooms } from './rooms';
 
 const password = 'correct-horse-battery-staple';
