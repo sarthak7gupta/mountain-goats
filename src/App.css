@@ -351,3 +351,11 @@
 .reset-btn:hover {
   background: #C62828 !important;
 }
+
+/* Tilt the mountains into the scene on wider screens. */
+@media (min-width: 769px) and (prefers-reduced-motion: no-preference) {
+  .columns-container {
+    transform: perspective(1400px) rotateX(12deg);
+    transform-origin: 50% 100%;
+  }
+}
