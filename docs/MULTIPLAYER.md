@@ -43,3 +43,14 @@ Build: `docker build -t mountain-goats .`; run with a mounted persistent volume,
 ## v3 — Public rooms, no login
 
 Select **Public room** when creating an expedition to list it in **Open expeditions**. Guests enter a display name and choose a room. Private is the default. Only unstarted, non-full public rooms are discoverable; the list updates every five seconds and contains room options/counts, never seat credentials or private room codes. Choosing a stale room does not reserve a seat: the server checks capacity and whether the game started again at join time. Public rooms use the same durable store and authority as private rooms. Anyone can join a public lobby, so use a private room to play with a known group.
+
+## v4 — Accounts
+
+`MODE=online` now requires an account to create, join or play a room. Create one with a username (3–30 letters, numbers or underscores) and a password of 12–128 characters; no email is collected. LAN hosting (`pnpm host`) stays account-free.
+
+- **Seats follow the account.** Every seat records its owner. The **Your account** panel lists your rooms on any signed-in device; choose **Resume** (or **View result** for finished games) to continue. Guest seats saved before upgrading to accounts are claimed by the first signed-in player who still holds them. Joining a room you already sit in returns your existing seat, even after the game started.
+- **Seat tokens are not enough.** In online mode every room request needs the session cookie; viewing or acting on a seat also needs its seat token, and that seat must belong to the signed-in account. A copied seat from another account is rejected and forgotten on that device.
+- **Sessions.** Passwords are hashed with scrypt and a per-user salt; unknown usernames take the same time as wrong passwords. Session tokens are stored only as SHA-256 hashes, last 30 days, are capped at ten per account and travel in an `HttpOnly; SameSite=Strict` cookie (`Secure` when `PUBLIC_ORIGIN` is HTTPS). Signing out ends the session and drops the seat saved on that device.
+- **Rate limits.** Sign-in and sign-up accept 12 attempts per client per minute; room writes accept 240. Behind a reverse proxy, set `TRUST_PROXY=1` so limits use the client address from `X-Forwarded-For` instead of the proxy's address. Do not set it when the server is exposed directly.
+
+Browser check: build, start `PORT=3111 MODE=online PUBLIC_ORIGIN=http://localhost:3111 DATABASE_PATH=/tmp/goats-e2e.sqlite pnpm exec tsx server/http.ts`, then run `BASE=http://localhost:3111 node tests/browser-online.mjs`.

@@ -9,7 +9,7 @@ import type { CellNumber } from '../src/models';
 export class RoomError extends Error {
   constructor(message: string, public status = 400) { super(message); }
 }
-interface Seat { name: string; token: string }
+interface Seat { name: string; token: string; userId?: number }
 export interface Room {
   public: boolean; code: string; revision: number; seats: Seat[]; capacity: number;
   expansions: { bigMountain: boolean; greenValley: boolean };
@@ -53,7 +53,7 @@ export class Rooms {
   }
   close(): void { this.database?.close(); }
 
-  create(input: Record<string, unknown>): { room: Room; token: string } {
+  create(input: Record<string, unknown>, userId?: number): { room: Room; token: string } {
     this.prune();
     if (this.rooms.size >= 500) throw new RoomError('Room limit reached. Try again later.', 503);
     const name = nameOf(input.name);
@@ -62,7 +62,7 @@ export class Rooms {
     let code: string;
     do { code = randomBytes(6).toString('hex').toUpperCase(); } while (this.rooms.has(code));
     const token = secret();
-    const room: Room = { public: input.public === true, code, revision: 0, seats: [{ name, token }], capacity: Number(capacity), expansions: {
+    const room: Room = { public: input.public === true, code, revision: 0, seats: [{ name, token, userId }], capacity: Number(capacity), expansions: {
       bigMountain: input.bigMountain === true, greenValley: input.greenValley === true,
     }, game: null, touched: Date.now() };
     this.save(room);
@@ -84,12 +84,30 @@ export class Rooms {
     if (!room) throw new RoomError('Room not found or expired.', 404);
     return room;
   }
-  join(room: Room, name: unknown): string {
+  join(room: Room, name: unknown, userId?: number): string {
+    const existing = userId === undefined ? undefined : room.seats.find(seat => seat.userId === userId);
+    if (existing) return existing.token;
     if (room.game) throw new RoomError('This game has already started.', 409);
     if (room.seats.length >= room.capacity) throw new RoomError('This room is full.', 409);
     const token = secret();
-    this.commit(room, { ...room, seats: [...room.seats, { name: nameOf(name), token }], revision: room.revision + 1, touched: Date.now() });
+    this.commit(room, { ...room, seats: [...room.seats, { name: nameOf(name), token, userId }], revision: room.revision + 1, touched: Date.now() });
     return token;
+  }
+  forUser(userId: number) {
+    this.prune();
+    return [...this.rooms.values()].flatMap(room => {
+      const seat = room.seats.find(s => s.userId === userId);
+      return seat ? [{ code: room.code, token: seat.token, started: !!room.game, finished: room.game?.state.gameOver || false }] : [];
+    });
+  }
+  authorizeUser(room: Room, token: string, userId: number): void {
+    const index = this.seat(room,token);
+    // Seats saved before accounts existed have no owner: the first signed-in holder of the token claims it.
+    if (room.seats[index].userId === undefined) {
+      this.commit(room, { ...room, seats: room.seats.map((s, i) => i === index ? { ...s, userId } : s) });
+      return;
+    }
+    if (room.seats[index].userId !== userId) throw new RoomError('This seat belongs to another account.',403);
   }
   seat(room: Room, token: string): number {
     const seat = room.seats.findIndex(s => matches(s.token, token));

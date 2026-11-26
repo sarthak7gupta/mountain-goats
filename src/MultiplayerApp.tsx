@@ -1,6 +1,8 @@
 /* biome-ignore-all lint/suspicious/noArrayIndexKey: Seats, dice and board cells are fixed ordered slots. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import App from './App';
+import { ApiError, request as call, type RoomSummary, type ServerConfig, type User } from './api';
+import AccountPanel from './components/AccountPanel';
 import PublicRooms from './components/PublicRooms';
 import { GameEngine } from './game';
 import type { CellNumber, PlayerColor } from './models';
@@ -22,34 +24,8 @@ const colors: Record<PlayerColor, string> = {
   yellow: '#e7b746',
   green: '#437b54',
 };
-class ApiError extends Error {
-  constructor(
-    message: string,
-    public status = 0
-  ) {
-    super(message);
-  }
-}
-async function api(path: string, token?: string, data?: unknown) {
-  let response: Response;
-  try {
-    response = await fetch(`/api${path}`, {
-      method: data === undefined ? 'GET' : 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: data === undefined ? undefined : JSON.stringify(data),
-      signal: AbortSignal.timeout(10000),
-    });
-  } catch {
-    throw new ApiError('Connection failed. Check your network and try again.');
-  }
-  // A proxy or host error page is not JSON; never surface a parser message.
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok)
-    throw new ApiError(result.error || 'Connection failed. Try again.', response.status);
-  return result;
+async function api<T = RoomView>(path: string, token?: string, data?: unknown): Promise<T> {
+  return call<T>(path, token ? { token, data } : { data });
 }
 const loopback = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/;
 /** Describe a goat location id such as `mountain:7`, `big:12` or `valley:0`. */
@@ -64,13 +40,20 @@ export default function MultiplayerApp() {
   const [session, setSession] = useState<Session | null>(saved);
   const [room, setRoom] = useState<RoomView | null>(null);
   const [name, setName] = useState('');
-  const [code, setCode] = useState(new URLSearchParams(location.search).get('room') || '');
+  const [invited] = useState(
+    () => new URLSearchParams(location.search).get('room')?.toUpperCase() || ''
+  );
+  const [code, setCode] = useState(invited);
   const [capacity, setCapacity] = useState(4);
   const [publicRoom, setPublicRoom] = useState(false);
   const [bigMountain, setBig] = useState(false);
   const [greenValley, setValley] = useState(false);
   const [available, setAvailable] = useState(false);
+  // Poll only once the server mode and account are known, so a 401 is read correctly.
+  const [configured, setConfigured] = useState(false);
   const [serverMode, setServerMode] = useState('lan');
+  const [login, setLogin] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -81,6 +64,8 @@ export default function MultiplayerApp() {
   const [lanUrls, setLanUrls] = useState<string[]>([]);
   const pending = useRef(false);
   const poke = useRef<() => void>(() => {});
+  const account = useRef({ login, user });
+  account.current = { login, user };
   const adopt = useCallback(
     (next: RoomView) =>
       setRoom((old) =>
@@ -89,14 +74,34 @@ export default function MultiplayerApp() {
     []
   );
   useEffect(() => {
-    api('/config')
+    call<ServerConfig>('/config')
       .then((config) => {
         setAvailable(true);
         setServerMode(config.mode);
         setLanUrls(Array.isArray(config.lanUrls) ? config.lanUrls : []);
+        setLogin(config.login);
+        if (!config.login) return null;
+        return call<User | null>('/auth/me')
+          .then((account) => {
+            setUser(account);
+            if (account) setName((old) => old || account.username);
+          })
+          .catch(() => setUser(null));
       })
-      .catch(() => setAvailable(false));
+      .catch(() => setAvailable(false))
+      .finally(() => setConfigured(true));
   }, []);
+  const myTurn = !!room?.game && !room.game.gameOver && room.game.currentPlayerIndex === room.you;
+  useEffect(() => {
+    // Tell a player in another tab or app that the game is waiting on them.
+    if (offline || !myTurn) return;
+    const previous = document.title;
+    document.title = 'Your move · Mountain Goats';
+    navigator.vibrate?.(120);
+    return () => {
+      document.title = previous;
+    };
+  }, [myTurn, offline]);
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(''), 4000);
@@ -110,7 +115,7 @@ export default function MultiplayerApp() {
     history.replaceState(null, '', location.pathname);
   }, []);
   useEffect(() => {
-    if (!session || offline) return;
+    if (!session || offline || !configured) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let inFlight = false;
@@ -132,9 +137,26 @@ export default function MultiplayerApp() {
       } catch (e) {
         if (!active) return;
         const status = (e as ApiError).status;
-        // The room is gone (expired or the host restarted) or this seat is unknown: stop polling.
-        if (status === 404 || status === 401) {
-          forget(`${(e as Error).message} Your saved seat was removed from this browser.`);
+        if (status === 401 && account.current.login) {
+          // Signed out, or the session lapsed: keep the seat and offer sign-in.
+          const current = account.current.user
+            ? await call<User | null>('/auth/me').catch(() => null)
+            : null;
+          if (!active) return;
+          if (!current) {
+            setUser(null);
+            setRoom(null);
+            setConnected(false);
+            if (active) timer = setTimeout(refresh, 1200);
+            return;
+          }
+        }
+        // 404: the room is gone (expired or the host restarted). 401/403: this seat is
+        // unknown here or belongs to another account.
+        if (status === 404 || status === 401 || status === 403) {
+          forget(
+            `${(e as Error).message} Your saved seat was removed from this ${account.current.login ? 'device' : 'browser'}.`
+          );
           return;
         }
         setConnected(false);
@@ -156,7 +178,7 @@ export default function MultiplayerApp() {
       poke.current = () => {};
       document.removeEventListener('visibilitychange', visible);
     };
-  }, [session, offline, adopt, forget]);
+  }, [session, offline, configured, adopt, forget]);
   async function request(work: () => Promise<void>) {
     if (pending.current) return;
     pending.current = true;
@@ -175,7 +197,7 @@ export default function MultiplayerApp() {
   }
   async function enter(join: boolean) {
     await request(async () => {
-      const result = await api(
+      const result = await api<{ token: string; room: RoomView }>(
         join ? `/rooms/${code.trim().toUpperCase()}/join` : '/rooms',
         undefined,
         join ? { name } : { name, capacity, bigMountain, greenValley, public: publicRoom }
@@ -184,6 +206,17 @@ export default function MultiplayerApp() {
       localStorage.setItem(key, JSON.stringify(seat));
       setSession(seat);
       adopt(result.room);
+      setConnected(true);
+      history.replaceState(null, '', `${location.pathname}?room=${seat.code}`);
+    });
+  }
+  async function resume(summary: RoomSummary) {
+    await request(async () => {
+      const seat = { code: summary.code, token: summary.token };
+      const view = await api(`/rooms/${summary.code}`, seat.token);
+      localStorage.setItem(key, JSON.stringify(seat));
+      setSession(seat);
+      adopt(view);
       setConnected(true);
       history.replaceState(null, '', `${location.pathname}?room=${seat.code}`);
     });
@@ -199,10 +232,24 @@ export default function MultiplayerApp() {
       );
     });
   }
+  function signedIn(account: User | null) {
+    setUser(account);
+    if (account) setName((old) => old || account.username);
+    setError('');
+  }
+  async function signOut() {
+    await request(async () => {
+      await call('/auth/logout', { data: {} });
+      setUser(null);
+      forget();
+    });
+  }
   function leave() {
     if (
       !window.confirm(
-        'Leave this room on this browser? Your seat cannot be recovered after leaving.'
+        login && user
+          ? 'Leave this room on this device? You can resume it later from your account.'
+          : 'Leave this room on this browser? Your seat cannot be recovered after leaving.'
       )
     )
       return;
@@ -211,12 +258,22 @@ export default function MultiplayerApp() {
   if (offline)
     return (
       <>
-        <button className="return-online" onClick={() => setOffline(false)} type="button">
-          ← Multiplayer
-        </button>
+        <nav className="return-online" aria-label="Game mode">
+          <button onClick={() => setOffline(false)} type="button">
+            ← Back to multiplayer
+          </button>
+        </nav>
         <App resume />
       </>
     );
+  const accountPanel = (
+    <AccountPanel
+      user={user}
+      onUser={signedIn}
+      onResume={(summary) => void resume(summary)}
+      onError={setError}
+    />
+  );
   const game = room?.game;
   const engine = game ? GameEngine.deserialize(JSON.stringify(game)) : null;
   const mine = !!game && game.currentPlayerIndex === room?.you && !game.gameOver;
@@ -228,6 +285,15 @@ export default function MultiplayerApp() {
   const inviteOrigin =
     loopback.test(location.hostname) && lanUrls[0] ? lanUrls[0] : location.origin;
   const invite = room ? `${inviteOrigin}${location.pathname}?room=${room.code}` : '';
+  // One letter per goat, two when players share a first letter.
+  const initials: Partial<Record<PlayerColor, string>> = {};
+  for (const p of game?.players || []) {
+    const first = p.name.trim().slice(0, 1).toUpperCase();
+    const shared = game?.players.some(
+      (o) => o !== p && o.name.trim().slice(0, 1).toUpperCase() === first
+    );
+    initials[p.color] = shared ? p.name.trim().slice(0, 2).toUpperCase() : first;
+  }
   function goat(color: PlayerColor, id: string) {
     const player = game?.players.find((p) => p.color === color);
     return (
@@ -239,7 +305,7 @@ export default function MultiplayerApp() {
         title={player?.name}
         aria-label={player?.name}
       >
-        {(player?.name || color).slice(0, 1).toUpperCase()}
+        {initials[color] || color.slice(0, 1).toUpperCase()}
       </span>
     );
   }
@@ -255,9 +321,22 @@ export default function MultiplayerApp() {
             Mountain Goats<small>A little luck. A higher ambition.</small>
           </span>
         </a>
-        <a href="https://www.yucata.de/en/Rules/MountainGoats" target="_blank" rel="noreferrer">
-          Rules ↗
-        </a>
+        <div className="header-links">
+          {login && user && <span className="account-chip">Signed in as {user.username}</span>}
+          {/* Outside a room the account panel has its own sign-in and sign-out controls. */}
+          {login && user && session && (
+            <button type="button" className="text-button" onClick={() => void signOut()}>
+              Sign out
+            </button>
+          )}
+          {login && !user && !room && <a href="#account">Sign in</a>}
+          <button type="button" className="text-button" onClick={() => setOffline(true)}>
+            Pass &amp; play
+          </button>
+          <a href="https://www.yucata.de/en/Rules/MountainGoats" target="_blank" rel="noreferrer">
+            Rules ↗
+          </a>
+        </div>
       </header>
       {error && (
         <div role="alert" className="error">
@@ -288,134 +367,160 @@ export default function MultiplayerApp() {
               <b>5 · 6 · 7 · 8 · 9 · 10</b>
             </div>
             <p>2–5 players · About 20 minutes</p>
-            <button type="button" className="text-button" onClick={() => setOffline(true)}>
+            <button type="button" className="secondary" onClick={() => setOffline(true)}>
               Play pass-and-play on this device →
             </button>
           </section>
-          <section className="panel">
-            <p className="eyebrow">BASE CAMP</p>
-            <h2>Gather your crew</h2>
-            {available && serverMode === 'online' && (
-              <p>Play from anywhere. Create a private room and share its invite link.</p>
-            )}
-            {!available ? (
-              <>
-                <p>
-                  To host on your Wi-Fi, run these commands on a computer, then open the printed
-                  network link on every device.
-                </p>
-                <pre>
-                  pnpm install
-                  <br />
-                  pnpm build
-                  <br />
-                  pnpm host
-                </pre>
-                <p>
-                  The host must stay on. Everyone must use the same network. Guest Wi-Fi may block
-                  connections.
-                </p>
-                <label>
-                  Host address
-                  <input type="url" placeholder="http://192.168.1.10:3000" id="lan-address" />
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const input = (document.getElementById('lan-address') as HTMLInputElement)
-                      .value;
-                    try {
-                      const url = new URL(input);
-                      if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
-                      location.assign(url.origin);
-                    } catch {
-                      setError('Enter a full http:// or https:// host address.');
-                    }
+          <div className="welcome-side">
+            {login && !user && accountPanel}
+            <section className="panel">
+              <p className="eyebrow">BASE CAMP</p>
+              <h2>{invited ? `Join room ${invited}` : 'Gather your crew'}</h2>
+              {invited && <p>You were invited to an expedition. Pick a name and join.</p>}
+              {available && serverMode === 'online' && (
+                <p>Play from anywhere. Create a private room and share its invite link.</p>
+              )}
+              {!available ? (
+                <>
+                  <p>
+                    To host on your Wi-Fi, run these commands on a computer, then open the printed
+                    network link on every device.
+                  </p>
+                  <pre>
+                    pnpm install
+                    <br />
+                    pnpm build
+                    <br />
+                    pnpm host
+                  </pre>
+                  <p>
+                    The host must stay on. Everyone must use the same network. Guest Wi-Fi may block
+                    connections.
+                  </p>
+                  <label>
+                    Host address
+                    <input type="url" placeholder="http://192.168.1.10:3000" id="lan-address" />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = (document.getElementById('lan-address') as HTMLInputElement)
+                        .value;
+                      try {
+                        const url = new URL(input);
+                        if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+                        location.assign(url.origin);
+                      } catch {
+                        setError('Enter a full http:// or https:// host address.');
+                      }
+                    }}
+                  >
+                    Open host
+                  </button>
+                </>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void enter(!!code.trim());
                   }}
                 >
-                  Open host
-                </button>
-              </>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void enter(!!code.trim());
-                }}
-              >
-                <label>
-                  Your name
-                  <input
-                    required
-                    maxLength={30}
-                    autoComplete="nickname"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Trail name"
-                  />
-                </label>
-                <label>
-                  Room code <small>Leave empty to host</small>
-                  <input
-                    maxLength={12}
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    placeholder="e.g. 8C2F4A9D1B30"
-                  />
-                </label>
-                {!code && (
-                  <>
-                    <label>
-                      Seats
-                      <select
-                        value={capacity}
-                        onChange={(e) => setCapacity(Number(e.target.value))}
-                      >
-                        {[2, 3, 4, 5].map((n) => (
-                          <option key={n}>{n}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <fieldset>
-                      <legend>Room options</legend>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          checked={publicRoom}
-                          onChange={(e) => setPublicRoom(e.target.checked)}
-                        />
-                        Public room <small>Anyone can discover and join before starting</small>
+                  <label>
+                    Your name
+                    <input
+                      required
+                      maxLength={30}
+                      autoComplete="nickname"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Trail name"
+                    />
+                  </label>
+                  <label>
+                    Room code <small>Leave empty to host</small>
+                    <input
+                      maxLength={12}
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. 8C2F4A9D1B30"
+                    />
+                  </label>
+                  {!code && (
+                    <>
+                      <label>
+                        Seats
+                        <select
+                          value={capacity}
+                          onChange={(e) => setCapacity(Number(e.target.value))}
+                        >
+                          {[2, 3, 4, 5].map((n) => (
+                            <option key={n}>{n}</option>
+                          ))}
+                        </select>
                       </label>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          checked={bigMountain}
-                          onChange={(e) => setBig(e.target.checked)}
-                        />
-                        Big Mountain <small>Claim spaces 11–24</small>
-                      </label>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          checked={greenValley}
-                          onChange={(e) => setValley(e.target.checked)}
-                        />
-                        Green Valley <small>Score from empty summits</small>
-                      </label>
-                    </fieldset>
-                  </>
-                )}
-                <button disabled={busy} type="submit">
-                  {busy ? 'Connecting…' : code ? 'Join the expedition' : 'Create a room'} →
-                </button>
-              </form>
-            )}
-          </section>
+                      <fieldset>
+                        <legend>Room options</legend>
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={publicRoom}
+                            onChange={(e) => setPublicRoom(e.target.checked)}
+                          />
+                          Public room <small>Anyone can discover and join before starting</small>
+                        </label>
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={bigMountain}
+                            onChange={(e) => setBig(e.target.checked)}
+                          />
+                          Big Mountain <small>Claim spaces 11–24</small>
+                        </label>
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={greenValley}
+                            onChange={(e) => setValley(e.target.checked)}
+                          />
+                          Green Valley <small>Score from empty summits</small>
+                        </label>
+                      </fieldset>
+                    </>
+                  )}
+                  <button disabled={busy || (login && !user)} type="submit">
+                    {busy
+                      ? 'Connecting…'
+                      : login && !user
+                        ? 'Sign in to continue'
+                        : code
+                          ? 'Join the expedition'
+                          : 'Create a room'}{' '}
+                    →
+                  </button>
+                </form>
+              )}
+            </section>
+            {login && user && accountPanel}
+          </div>
         </main>
       ) : !room ? (
         <main id="play" className="panel">
           <h1>Reconnecting to base camp…</h1>
-          <p>Keep the host running and check your connection.</p>
+          <p>
+            {login && !user
+              ? 'Sign in to the account that holds this seat.'
+              : serverMode === 'online'
+                ? 'Check your connection. Your seat is saved.'
+                : 'Keep the host running and check your connection.'}
+          </p>
+          {login && !user && (
+            <AccountPanel
+              user={user}
+              onUser={signedIn}
+              onResume={(summary) => void resume(summary)}
+              onError={setError}
+            />
+          )}
           <button type="button" onClick={leave}>
             Forget this seat
           </button>
@@ -429,23 +534,45 @@ export default function MultiplayerApp() {
             Join link
             <input readOnly value={invite} onFocus={(e) => e.target.select()} />
           </label>
-          <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard
-                ?.writeText(invite)
-                .then(() => setNotice('Invite link copied.'))
-                .catch(() => setNotice('Select and copy the invite link above.'));
-            }}
-          >
-            Copy invite link
-          </button>
+          <div className="invite-actions">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard
+                  ?.writeText(invite)
+                  .then(() => setNotice('Invite link copied.'))
+                  .catch(() => setNotice('Select and copy the invite link above.'));
+              }}
+            >
+              Copy invite link
+            </button>
+            {typeof navigator.share === 'function' && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  void navigator
+                    .share({ title: 'Join my Mountain Goats room', url: invite })
+                    .catch(() => {})
+                }
+              >
+                Share…
+              </button>
+            )}
+          </div>
           <ol className="seat-list">
-            {room.seats.map((seat, i) => (
-              <li key={i}>
-                {seat.name} {i === room.you && '(you)'} {i === 0 && '· host'}
-              </li>
-            ))}
+            {Array.from({ length: room.capacity }, (_, i) => {
+              const seat = room.seats[i];
+              return seat ? (
+                <li key={i}>
+                  {seat.name} {i === room.you && '(you)'} {i === 0 && '· host'}
+                </li>
+              ) : (
+                <li key={i} className="open-seat">
+                  Open seat — waiting for a player
+                </li>
+              );
+            })}
           </ol>
           <p>
             {room.seats.length}/{room.capacity} seats ·{' '}
@@ -544,6 +671,29 @@ export default function MultiplayerApp() {
               </div>
             ))}
           </section>
+          {game.gameOver && (
+            <section className="panel results" aria-label="Final results">
+              <h2>Final standings</h2>
+              <ol>
+                {game.players
+                  .map((player, i) => ({ player, i }))
+                  .sort((a, b) => b.player.score - a.player.score)
+                  .map(({ player, i }) => (
+                    <li key={player.color}>
+                      {goat(player.color, `result-${player.color}`)}
+                      <span>
+                        {player.name}
+                        {i === room.you && ' · you'}
+                      </span>
+                      <strong>{player.score} points</strong>
+                    </li>
+                  ))}
+              </ol>
+              <button type="button" onClick={() => forget()}>
+                Back to base camp
+              </button>
+            </section>
+          )}
           {!game.gameOver && (
             <section className="turn-panel panel" aria-label="Your turn controls">
               <fieldset disabled={!canAct}>
@@ -791,7 +941,7 @@ export default function MultiplayerApp() {
           )}
           <details className="panel">
             <summary>Trail journal · last {Math.min(20, game.gameLog.length)} events</summary>
-            <ol>
+            <ul className="journal">
               {game.gameLog
                 .slice(-20)
                 .reverse()
@@ -800,11 +950,11 @@ export default function MultiplayerApp() {
                     Round {entry.turn} · {entry.action}
                   </li>
                 ))}
-            </ol>
+            </ul>
           </details>
         </main>
       )}
-      {!session && available && <PublicRooms onJoin={setCode} />}
+      {!session && available && <PublicRooms onJoin={setCode} requiresLogin={login} />}
       <footer>Mountain Goats · A game by Stefan Risthaus · Unofficial fan implementation</footer>
     </div>
   );
