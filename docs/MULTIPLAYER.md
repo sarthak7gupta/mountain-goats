@@ -39,3 +39,7 @@ For a local backend check: `PUBLIC_ORIGIN=http://localhost:3000 pnpm start`. `DA
 Every accepted room mutation is saved atomically to SQLite before being acknowledged or applied to live state. WAL mode supports safe crash recovery. Rooms, seats, invite codes, game state and revisions survive a restart. Disk-write failures leave live state unchanged and return an error. Startup fails rather than silently discarding an unreadable database. Rooms still expire after 24 hours inactive. Stop the server before copying the database plus its WAL files, or use SQLite's backup facility; keep backups private because seat credentials grant control.
 
 Build: `docker build -t mountain-goats .`; run with a mounted persistent volume, `MODE=online`, `PUBLIC_ORIGIN` and `DATABASE_PATH`. Provisioning a hosted service and DNS is a separate deployment action; this PR adds the deployable backend rather than selecting a paid host automatically.
+
+## v3 — Public rooms, no login
+
+Select **Public room** when creating an expedition to list it in **Open expeditions**. Guests enter a display name and choose a room. Private is the default. Only unstarted, non-full public rooms are discoverable; the list updates every five seconds and contains room options/counts, never seat credentials or private room codes. Choosing a stale room does not reserve a seat: the server checks capacity and whether the game started again at join time. Public rooms use the same durable store and authority as private rooms. Anyone can join a public lobby, so use a private room to play with a known group.

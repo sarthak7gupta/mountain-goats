@@ -11,7 +11,7 @@ export class RoomError extends Error {
 }
 interface Seat { name: string; token: string }
 export interface Room {
-  code: string; revision: number; seats: Seat[]; capacity: number;
+  public: boolean; code: string; revision: number; seats: Seat[]; capacity: number;
   expansions: { bigMountain: boolean; greenValley: boolean };
   game: GameEngine | null; touched: number;
 }
@@ -62,7 +62,7 @@ export class Rooms {
     let code: string;
     do { code = randomBytes(6).toString('hex').toUpperCase(); } while (this.rooms.has(code));
     const token = secret();
-    const room: Room = { code, revision: 0, seats: [{ name, token }], capacity: Number(capacity), expansions: {
+    const room: Room = { public: input.public === true, code, revision: 0, seats: [{ name, token }], capacity: Number(capacity), expansions: {
       bigMountain: input.bigMountain === true, greenValley: input.greenValley === true,
     }, game: null, touched: Date.now() };
     this.save(room);
@@ -71,6 +71,12 @@ export class Rooms {
   }
   prune(): void {
     for (const [code, room] of this.rooms) if (Date.now() - room.touched > 24 * 60 * 60 * 1000) { this.database?.prepare('DELETE FROM rooms WHERE code = ?').run(code); this.rooms.delete(code); }
+  }
+  publicRooms() {
+    this.prune();
+    return [...this.rooms.values()].filter(room => room.public && !room.game && room.seats.length < room.capacity)
+      .sort((a,b) => b.touched - a.touched).slice(0,100)
+      .map(room => ({ code: room.code, players: room.seats.length, capacity: room.capacity, expansions: room.expansions }));
   }
   get(code: string): Room {
     this.prune();
